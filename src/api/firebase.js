@@ -168,6 +168,25 @@ export const getCurrentUserIdToken = async () => {
   return auth.currentUser.getIdToken();
 };
 
+export const getCloudTrainerProfile = async () => {
+  const idToken = await getCurrentUserIdToken();
+  if (!idToken) return null;
+
+  const response = await fetch('/.netlify/functions/getTrainerProfile', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify({ idToken }),
+  });
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data?.error || 'Nao foi possivel carregar o perfil na nuvem.');
+  }
+
+  return data.trainerData || null;
+};
+
 export const getGlobalLeaderboard = async () => {
   if (!isFirebaseConfigured || !db) return [];
 

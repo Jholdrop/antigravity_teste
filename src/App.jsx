@@ -9,6 +9,7 @@ import ThemeToggle from './components/ui/ThemeToggle';
 import { HelpCircle, Swords, Trophy, Users } from 'lucide-react';
 import {
   auth,
+  getCloudTrainerProfile,
   getTrainerData,
   isFirebaseConfigured,
   loginTrainer,
@@ -42,6 +43,17 @@ function App() {
   const [actionLoading, setActionLoading] = useState(false);
   const [authError, setAuthError] = useState('');
 
+  const applyTrainerData = (user, data) => {
+    setCurrentUser({
+      uid: user.uid,
+      name: data?.name || user.displayName || user.email?.split('@')[0] || 'Treinador',
+      email: user.email,
+      photoURL: data?.photoURL || user.photoURL || '',
+    });
+    setCaughtPokemons(data?.caughtPokemons || []);
+    setTeam(data?.team || []);
+  };
+
   useEffect(() => {
     if (!isFirebaseConfigured) {
       return undefined;
@@ -57,18 +69,18 @@ function App() {
       }
 
       try {
-        const data = await getTrainerData(user);
-        setCurrentUser({
-          uid: user.uid,
-          name: data?.name || user.displayName || user.email?.split('@')[0] || 'Treinador',
-          email: user.email,
-          photoURL: data?.photoURL || user.photoURL || '',
-        });
-        setCaughtPokemons(data?.caughtPokemons || []);
-        setTeam(data?.team || []);
+        let data = await getCloudTrainerProfile();
+        if (!data) data = await getTrainerData(user);
+        applyTrainerData(user, data);
       } catch (error) {
         console.error('Erro ao obter dados do treinador:', error);
-        setAuthError('Nao foi possivel carregar sua conta. Tente entrar novamente.');
+        try {
+          const data = await getTrainerData(user);
+          applyTrainerData(user, data);
+        } catch (fallbackError) {
+          console.error('Erro ao obter dados do treinador pelo cliente:', fallbackError);
+          setAuthError('Nao foi possivel carregar sua conta. Tente entrar novamente.');
+        }
       } finally {
         setAuthLoading(false);
       }
@@ -199,6 +211,15 @@ function App() {
     setCaughtPokemons((prev) =>
       prev.some((entry) => entry.id === pokemon.id) ? prev : [...prev, pokemon]
     );
+
+    getCloudTrainerProfile()
+      .then((data) => {
+        if (data?.caughtPokemons) {
+          setCaughtPokemons(data.caughtPokemons);
+          if (Array.isArray(data.team)) setTeam(data.team);
+        }
+      })
+      .catch((error) => console.error('Erro ao recarregar Pokedex da nuvem:', error));
   };
 
   const addToTeam = (pokemon) => {

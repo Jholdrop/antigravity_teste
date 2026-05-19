@@ -48,6 +48,58 @@ const sanitizeTrainerName = (value) => {
   return cleaned || 'Treinador';
 };
 
+export const getTrainerProfileFromToken = async (idToken) => {
+  const services = getFirebaseAdminServices();
+  if (!services || !idToken) {
+    return {
+      saved: false,
+      reason: 'Firebase Admin nao configurado ou sessao ausente.',
+      trainerData: null,
+    };
+  }
+
+  const decoded = await services.auth.verifyIdToken(idToken);
+  const userRef = services.db.collection('users').doc(decoded.uid);
+  const snapshot = await userRef.get();
+  const previous = snapshot.exists ? snapshot.data() : {};
+  const caughtPokemons = Array.isArray(previous.caughtPokemons) ? previous.caughtPokemons : [];
+  const team = Array.isArray(previous.team) ? previous.team : [];
+  const trainerData = {
+    uid: decoded.uid,
+    name: sanitizeTrainerName(previous.name || decoded.name || decoded.email?.split('@')[0]),
+    email: decoded.email || previous.email || '',
+    photoURL: decoded.picture || previous.photoURL || '',
+    caughtPokemons,
+    team,
+    score: previous.score ?? caughtPokemons.length,
+  };
+
+  if (!snapshot.exists) {
+    await userRef.set({
+      ...trainerData,
+      createdAt: FieldValue.serverTimestamp(),
+      lastActive: FieldValue.serverTimestamp(),
+    });
+  } else {
+    await userRef.set(
+      {
+        uid: trainerData.uid,
+        name: trainerData.name,
+        email: trainerData.email,
+        photoURL: trainerData.photoURL,
+        score: trainerData.score,
+        lastActive: FieldValue.serverTimestamp(),
+      },
+      { merge: true }
+    );
+  }
+
+  return {
+    saved: true,
+    trainerData,
+  };
+};
+
 export const toCapturedPokemon = (pokemon) => ({
   id: pokemon.id,
   name: pokemon.name,

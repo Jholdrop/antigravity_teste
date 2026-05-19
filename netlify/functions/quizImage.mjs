@@ -3,6 +3,7 @@ import {
   decryptChallengeToken,
   isQuizConfigError,
 } from './_shared/quizCrypto.mjs';
+import sharp from 'sharp';
 
 const BASE_URL = 'https://pokeapi.co/api/v2';
 
@@ -39,16 +40,50 @@ export const handler = async (event) => {
     if (!imageRes.ok) throw new Error('Imagem indisponivel');
 
     const arrayBuffer = await imageRes.arrayBuffer();
-    const contentType = imageRes.headers.get('Content-Type') || 'image/png';
+    const inputBuffer = Buffer.from(arrayBuffer);
+    const { data, info } = await sharp(inputBuffer)
+      .ensureAlpha()
+      .resize({
+        width: 520,
+        height: 520,
+        fit: 'contain',
+        background: { r: 0, g: 0, b: 0, alpha: 0 },
+      })
+      .raw()
+      .toBuffer({ resolveWithObject: true });
+
+    for (let index = 0; index < data.length; index += info.channels) {
+      const alphaIndex = index + 3;
+      const alpha = data[alphaIndex];
+
+      if (alpha > 8) {
+        data[index] = 8;
+        data[index + 1] = 13;
+        data[index + 2] = 22;
+        data[alphaIndex] = Math.min(245, alpha + 35);
+      } else {
+        data[alphaIndex] = 0;
+      }
+    }
+
+    const silhouette = await sharp(data, {
+      raw: {
+        width: info.width,
+        height: info.height,
+        channels: info.channels,
+      },
+    })
+      .png()
+      .toBuffer();
 
     return {
       statusCode: 200,
       headers: {
-        'Content-Type': contentType,
+        'Content-Type': 'image/png',
         'Cache-Control': 'no-store, no-cache, must-revalidate',
         'X-Content-Type-Options': 'nosniff',
       },
-      body: Buffer.from(arrayBuffer).toString('base64'),
+      body: silhouette.toString('base64'),
       isBase64Encoded: true,
     };
   } catch (error) {

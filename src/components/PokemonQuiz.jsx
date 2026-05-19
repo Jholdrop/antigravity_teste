@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { getPokemonDetails, getSecureQuizRound, submitQuizGuess } from '../api/pokeapi';
 import { getCurrentUserIdToken } from '../api/firebase';
 import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
@@ -10,7 +10,9 @@ const createSessionId = () => {
   const key = 'antigravity_quiz_session';
   const existing = sessionStorage.getItem(key);
   if (existing) return existing;
-  const generated = window.crypto?.randomUUID?.() || `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
+
+  const generated =
+    window.crypto?.randomUUID?.() || `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
   sessionStorage.setItem(key, generated);
   return generated;
 };
@@ -35,29 +37,30 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
   const [alreadyCaught, setAlreadyCaught] = useState(false);
   const [validationMessage, setValidationMessage] = useState('');
   const [blobUrl, setBlobUrl] = useState('');
+  const [loadError, setLoadError] = useState(false);
+
   const inputRef = useRef(null);
   const sessionIdRef = useRef(createSessionId());
   const { registerAttempt } = useAntiCheat({ onAlert: setValidationMessage });
-  const [loadError, setLoadError] = useState(false);
 
   useEffect(() => {
     let urlToRevoke = '';
+
     if (image) {
       fetch(image)
-        .then(res => res.blob())
-        .then(blob => {
+        .then((res) => res.blob())
+        .then((blob) => {
           urlToRevoke = URL.createObjectURL(blob);
           setBlobUrl(urlToRevoke);
         })
         .catch((error) => {
           console.error('Erro ao carregar imagem:', error);
           setBlobUrl(image);
-        }); 
+        });
     }
+
     return () => {
-      if (urlToRevoke) {
-        URL.revokeObjectURL(urlToRevoke);
-      }
+      if (urlToRevoke) URL.revokeObjectURL(urlToRevoke);
     };
   }, [image]);
 
@@ -76,19 +79,18 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
 
     try {
       const data = await getSecureQuizRound();
-      
+
       setPokemonName('');
       setPokemonId(null);
       setClues(data.clues);
       setMainType(data.mainType);
       setImage(data.image);
       setPokemonTypes([]);
-      setAlreadyCaught(false);
       setChallengeId(data.challengeId);
       setChallengeToken(data.challengeToken);
     } catch (error) {
       console.error('Erro ao carregar quiz:', error);
-      setValidationMessage('Erro ao carregar o desafio. Verifique sua conexão.');
+      setValidationMessage('Erro ao carregar o desafio. Verifique sua conexao.');
       setLoadError(true);
     } finally {
       setLoading(false);
@@ -106,9 +108,10 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
 
   const handleGuess = async () => {
     if (!guess.trim() || gameState !== 'playing') return;
+
     registerAttempt();
     if (!challengeId || !challengeToken) {
-      setValidationMessage('Desafio inválido. Inicie um novo jogo.');
+      setValidationMessage('Desafio invalido. Inicie um novo jogo.');
       return;
     }
 
@@ -141,16 +144,19 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
             revealedPokemon.sprites?.front_default ||
             revealedPokemon.sprites?.other?.['official-artwork']?.front_default ||
             '';
+
           setImage(safeImage);
           setPokemonTypes(revealedPokemon.types || []);
           setMainType(revealedPokemon.types?.[0]?.type?.name || 'mystery');
         }
 
-        if (!caughtIds.includes(response.pokemonId) && revealedPokemon) {
-          onCatch(revealedPokemon, response.trainerData);
-          setAlreadyCaught(false);
-        } else {
-          setAlreadyCaught(true);
+        const wasAlreadyCaught = Boolean(response.alreadyCaught) || caughtIds.includes(response.pokemonId);
+        setAlreadyCaught(wasAlreadyCaught);
+
+        if (response.trainerData) {
+          onCatch(revealedPokemon || response.capturedPokemon, response.trainerData);
+        } else if (!wasAlreadyCaught && revealedPokemon) {
+          onCatch(revealedPokemon);
         }
 
         if (!response.saved) {
@@ -161,13 +167,15 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
         } else {
           setValidationMessage(response.message || 'Parabens!');
         }
-      } else {
-        setWrongGuesses((prev) => [...prev, answer]);
-        setGuess('');
-        setValidationMessage(response.message || 'Resposta incorreta. Tente de novo.');
-        if (cluesRevealed < clues.length) {
-          setCluesRevealed((prev) => prev + 1);
-        }
+
+        return;
+      }
+
+      setWrongGuesses((prev) => [...prev, answer]);
+      setGuess('');
+      setValidationMessage(response.message || 'Resposta incorreta. Tente de novo.');
+      if (cluesRevealed < clues.length) {
+        setCluesRevealed((prev) => prev + 1);
       }
     } catch (error) {
       setValidationMessage(error.message || 'Erro ao validar a resposta.');
@@ -179,8 +187,16 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
     }
   };
 
+  const handleGiveUp = () => {
+    if (gameState !== 'playing') return;
+
+    setGameState('gaveup');
+    setPokemonName('Desafio pulado');
+    setValidationMessage('Voce pulou este desafio. Nenhuma captura foi registrada.');
+  };
+
   if (loading) {
-    return <LoadingScreen message="Carregando o próximo desafio..." />;
+    return <LoadingScreen message="Carregando o proximo desafio..." />;
   }
 
   if (loadError) {
@@ -200,21 +216,21 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
 
   const isRevealed = gameState !== 'playing';
   const displayImage = blobUrl || image;
+  const resultClass = gameState === 'won' ? 'won' : 'lost';
 
   return (
     <div className="quiz-page">
       <header className="quiz-header animate-fade-in">
         <button className="btn-back-quiz" onClick={onBack}>
-          <ArrowLeft size={20} /> Pokédex
+          <ArrowLeft size={20} /> Pokedex
         </button>
-        <h1>Quiz Pokémon</h1>
+        <h1>Quiz Pokemon</h1>
         <div className="quiz-clue-badge">
           {Math.min(cluesRevealed, clues.length)}/{clues.length} dicas
         </div>
       </header>
 
       <div className="quiz-body">
-        {/* Imagem / Silhueta */}
         <div className="quiz-image-col">
           <div className={`quiz-img-wrapper type-${mainType} ${isRevealed ? 'revealed' : ''}`}>
             <img
@@ -222,63 +238,69 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
               alt={isRevealed ? pokemonName : '???'}
               className={`quiz-img ${isRevealed ? 'show' : 'silhouette'}`}
               draggable="false"
-              onContextMenu={(e) => e.preventDefault()}
+              onContextMenu={(event) => event.preventDefault()}
             />
             {!isRevealed && <div className="quiz-question-mark">?</div>}
           </div>
 
           {isRevealed && (
-            <div className={`result-card animate-fade-in ${gameState}`}>
-              {gameState === 'won'
-                ? <CheckCircle size={28} />
-                : <XCircle size={28} />}
+            <div className={`result-card animate-fade-in ${resultClass}`}>
+              {gameState === 'won' ? <CheckCircle size={28} /> : <XCircle size={28} />}
               <div>
                 <div className="result-name">{pokemonName}</div>
                 <div className="result-sub">
                   {gameState === 'won'
-                    ? (alreadyCaught ? 'Já está na sua Pokédex!' : '🎉 Adicionado à Pokédex!')
-                    : 'Melhor sorte na próxima!'}
+                    ? (alreadyCaught ? 'Ja esta na sua Pokedex!' : 'Adicionado a Pokedex!')
+                    : 'Nenhuma captura registrada.'}
                 </div>
               </div>
             </div>
           )}
 
-          {isRevealed && (
+          {isRevealed && pokemonTypes.length > 0 && (
             <div className="result-types animate-fade-in">
-              {pokemonTypes.map(t => (
-                <span key={t.type.name} className="type-badge" style={{ background: `var(--type-${t.type.name})` }}>
-                  {t.type.name}
+              {pokemonTypes.map((typeEntry) => (
+                <span
+                  key={typeEntry.type.name}
+                  className="type-badge"
+                  style={{ background: `var(--type-${typeEntry.type.name})` }}
+                >
+                  {typeEntry.type.name}
                 </span>
               ))}
             </div>
           )}
         </div>
 
-        {/* Dicas e Resposta */}
         <div className="quiz-clues-col">
-          <h2 className="quiz-title">Qual Pokémon é esse?</h2>
+          <h2 className="quiz-title">Qual Pokemon e esse?</h2>
 
           <div className="clues-list">
-            {clues.slice(0, cluesRevealed).map((c, i) => (
-              <div key={i} className={`clue-item animate-fade-in ${i === cluesRevealed - 1 ? 'clue-new' : ''}`}>
-                <span className="clue-icon">{c.icon}</span>
+            {clues.slice(0, cluesRevealed).map((clue, index) => (
+              <div
+                key={`${clue.label}-${index}`}
+                className={`clue-item animate-fade-in ${index === cluesRevealed - 1 ? 'clue-new' : ''}`}
+              >
+                <span className="clue-icon">{clue.icon}</span>
                 <div className="clue-body">
-                  <span className="clue-label">{c.label}</span>
-                  <span className="clue-text">{c.text}</span>
+                  <span className="clue-label">{clue.label}</span>
+                  <span className="clue-text">{clue.text}</span>
                 </div>
               </div>
             ))}
           </div>
 
-          {validationMessage && (
-            <div className="quiz-alert">{validationMessage}</div>
-          )}
+          {validationMessage && <div className="quiz-alert">{validationMessage}</div>}
 
           {wrongGuesses.length > 0 && (
             <div className="wrong-guesses">
-              <span className="wrong-title">❌ Erros:</span>
+              <span className="wrong-title">Erros:</span>
               <div className="wrong-tags">
-                {wrongGuesses.map((g, i) => <span key={i} className="wrong-tag">{g}</span>)}
+                {wrongGuesses.map((entry, index) => (
+                  <span key={`${entry}-${index}`} className="wrong-tag">
+                    {entry}
+                  </span>
+                ))}
               </div>
             </div>
           )}
@@ -289,10 +311,10 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
                 <input
                   ref={inputRef}
                   type="text"
-                  placeholder="Digite o nome do Pokémon..."
+                  placeholder="Digite o nome do Pokemon..."
                   value={guess}
-                  onChange={e => setGuess(e.target.value)}
-                  onKeyDown={e => e.key === 'Enter' && handleGuess()}
+                  onChange={(event) => setGuess(event.target.value)}
+                  onKeyDown={(event) => event.key === 'Enter' && handleGuess()}
                   className="guess-input"
                 />
                 <button className="btn-guess" onClick={handleGuess}>
@@ -300,8 +322,8 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
                 </button>
               </div>
               <div className="quiz-action-row">
-                <button className="btn-guess" onClick={handleGuess}>
-                  Enviar
+                <button className="btn-giveup" onClick={handleGiveUp}>
+                  Desistir
                 </button>
               </div>
             </div>
@@ -310,7 +332,7 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
           {gameState !== 'playing' && (
             <div className="quiz-next-area animate-fade-in">
               <button className="btn-next" onClick={loadNew}>
-                Próximo desafio
+                Proximo desafio
               </button>
             </div>
           )}
