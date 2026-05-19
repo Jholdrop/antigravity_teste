@@ -1,4 +1,8 @@
-import admin from 'firebase-admin';
+import { cert, getApp, getApps, initializeApp } from 'firebase-admin/app';
+import { getAuth } from 'firebase-admin/auth';
+import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+
+const firestoreDatabaseId = process.env.FIREBASE_DATABASE_ID || 'default';
 
 const normalizePrivateKey = (privateKey = '') => privateKey.replace(/\\n/g, '\n');
 
@@ -9,12 +13,12 @@ export const isFirebaseAdminConfigured = () =>
       process.env.FIREBASE_PRIVATE_KEY
   );
 
-export const getFirebaseAdmin = () => {
+const getFirebaseAdminApp = () => {
   if (!isFirebaseAdminConfigured()) return null;
 
-  if (!admin.apps.length) {
-    admin.initializeApp({
-      credential: admin.credential.cert({
+  if (!getApps().length) {
+    return initializeApp({
+      credential: cert({
         projectId: process.env.FIREBASE_PROJECT_ID,
         clientEmail: process.env.FIREBASE_CLIENT_EMAIL,
         privateKey: normalizePrivateKey(process.env.FIREBASE_PRIVATE_KEY),
@@ -22,7 +26,17 @@ export const getFirebaseAdmin = () => {
     });
   }
 
-  return admin;
+  return getApp();
+};
+
+const getFirebaseAdminServices = () => {
+  const app = getFirebaseAdminApp();
+  if (!app) return null;
+
+  return {
+    auth: getAuth(app),
+    db: getFirestore(app, firestoreDatabaseId),
+  };
 };
 
 const sanitizeTrainerName = (value) => {
@@ -53,8 +67,8 @@ export const toCapturedPokemon = (pokemon) => ({
 });
 
 export const awardPokemonToUser = async ({ idToken, pokemon }) => {
-  const firebaseAdmin = getFirebaseAdmin();
-  if (!firebaseAdmin || !idToken) {
+  const services = getFirebaseAdminServices();
+  if (!services || !idToken) {
     return {
       saved: false,
       reason: 'Firebase Admin nao configurado ou sessao ausente.',
@@ -62,8 +76,8 @@ export const awardPokemonToUser = async ({ idToken, pokemon }) => {
     };
   }
 
-  const decoded = await firebaseAdmin.auth().verifyIdToken(idToken);
-  const db = firebaseAdmin.firestore();
+  const decoded = await services.auth.verifyIdToken(idToken);
+  const db = services.db;
   const userRef = db.collection('users').doc(decoded.uid);
   const capturedPokemon = toCapturedPokemon(pokemon);
 
@@ -89,10 +103,10 @@ export const awardPokemonToUser = async ({ idToken, pokemon }) => {
         caughtPokemons: nextCaught,
         score,
         team: Array.isArray(previous.team) ? previous.team : [],
-        lastActive: firebaseAdmin.firestore.FieldValue.serverTimestamp(),
+        lastActive: FieldValue.serverTimestamp(),
         ...(snapshot.exists
           ? {}
-          : { createdAt: firebaseAdmin.firestore.FieldValue.serverTimestamp() }),
+          : { createdAt: FieldValue.serverTimestamp() }),
       },
       { merge: true }
     );

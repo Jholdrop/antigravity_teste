@@ -40,6 +40,8 @@ const requiredConfigValues = [
 
 export const isFirebaseConfigured = requiredConfigValues.every(Boolean);
 
+const firestoreDatabaseId = import.meta.env.VITE_FIREBASE_DATABASE_ID || 'default';
+
 let app;
 let auth;
 let db;
@@ -47,7 +49,7 @@ let db;
 if (isFirebaseConfigured) {
   app = initializeApp(firebaseConfig);
   auth = getAuth(app);
-  db = getFirestore(app);
+  db = getFirestore(app, firestoreDatabaseId);
 } else {
   console.warn('Firebase nao configurado. Configure as variaveis VITE_FIREBASE_* no ambiente.');
 }
