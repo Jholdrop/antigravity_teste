@@ -1,0 +1,35 @@
+rules_version = '2';
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function signedIn() {
+      return request.auth != null;
+    }
+
+    function isOwner(uid) {
+      return signedIn() && request.auth.uid == uid;
+    }
+
+    function validTeam() {
+      return request.resource.data.team is list && request.resource.data.team.size() <= 6;
+    }
+
+    match /users/{uid} {
+      allow read: if signedIn();
+
+      allow create: if isOwner(uid)
+        && request.resource.data.uid == uid
+        && request.resource.data.caughtPokemons is list
+        && request.resource.data.caughtPokemons.size() == 0
+        && request.resource.data.score == 0
+        && validTeam();
+
+      allow update: if isOwner(uid)
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['name', 'email', 'photoURL', 'team', 'lastActive'])
+        && validTeam();
+
+      allow delete: if false;
+    }
+  }
+}

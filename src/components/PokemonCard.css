@@ -1,0 +1,127 @@
+.pokemon-card {
+  position: relative;
+  padding: 1.5rem;
+  cursor: pointer;
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  overflow: hidden;
+}
+
+.pokemon-card::before {
+  content: '';
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: inherit;
+  z-index: -1;
+  opacity: 0.1;
+  transition: opacity 0.3s ease;
+}
+
+.pokemon-card:hover {
+  transform: translateY(-8px) scale(1.02);
+  box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+  border-color: rgba(255, 255, 255, 0.3);
+}
+
+.pokemon-card:hover::before {
+  opacity: 0.2;
+}
+
+.card-header {
+  width: 100%;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1rem;
+}
+
+.pokemon-id {
+  font-size: 1rem;
+  font-weight: 700;
+  color: var(--text-muted);
+  opacity: 0.8;
+}
+
+.pokemon-types-mini {
+  display: flex;
+  gap: 0.25rem;
+}
+
+.type-dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  box-shadow: 0 0 10px rgba(0,0,0,0.5);
+}
+
+.card-image-container {
+  width: 100%;
+  aspect-ratio: 1;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  position: relative;
+}
+
+.pokemon-image {
+  width: 85%;
+  height: 85%;
+  object-fit: contain;
+  filter: drop-shadow(0 10px 15px rgba(0, 0, 0, 0.5));
+  transition: transform 0.3s ease;
+  z-index: 1;
+}
+
+.pokemon-card:hover .pokemon-image {
+  transform: scale(1.1) rotate(2deg);
+}
+
+.card-info {
+  margin-top: 1rem;
+  text-align: center;
+  width: 100%;
+}
+
+.pokemon-name {
+  text-transform: capitalize;
+  font-size: 1.25rem;
+  font-weight: 600;
+  letter-spacing: 0.5px;
+}
+
+.skeleton {
+  min-height: 250px;
+  background: linear-gradient(90deg, rgba(30,41,59,0.5) 25%, rgba(51,65,85,0.5) 50%, rgba(30,41,59,0.5) 75%);
+  background-size: 200% 100%;
+  animation: skeletonLoading 1.5s infinite;
+}
+
+@keyframes skeletonLoading {
+  0% { background-position: 200% 0; }
+  100% { background-position: -200% 0; }
+}
+
+/* Background Gradients matching types */
+.type-fire { background: linear-gradient(135deg, rgba(238, 129, 48, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-water { background: linear-gradient(135deg, rgba(99, 144, 240, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-grass { background: linear-gradient(135deg, rgba(122, 199, 76, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-electric { background: linear-gradient(135deg, rgba(247, 208, 44, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-psychic { background: linear-gradient(135deg, rgba(249, 85, 135, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-ice { background: linear-gradient(135deg, rgba(150, 217, 214, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-dragon { background: linear-gradient(135deg, rgba(111, 53, 252, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-dark { background: linear-gradient(135deg, rgba(112, 87, 70, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-fairy { background: linear-gradient(135deg, rgba(214, 133, 173, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-normal { background: linear-gradient(135deg, rgba(168, 167, 122, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-fighting { background: linear-gradient(135deg, rgba(194, 46, 40, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-poison { background: linear-gradient(135deg, rgba(163, 62, 161, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-ground { background: linear-gradient(135deg, rgba(226, 191, 101, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-flying { background: linear-gradient(135deg, rgba(169, 143, 243, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-bug { background: linear-gradient(135deg, rgba(166, 185, 26, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-rock { background: linear-gradient(135deg, rgba(182, 161, 54, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-ghost { background: linear-gradient(135deg, rgba(115, 87, 151, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }
+.type-steel { background: linear-gradient(135deg, rgba(183, 183, 206, 0.15) 0%, rgba(30, 41, 59, 0.7) 100%); }

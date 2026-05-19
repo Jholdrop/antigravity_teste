@@ -1,0 +1,130 @@
+.ranking-page {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+  padding: 1rem;
+}
+
+.ranking-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 2rem;
+}
+
+.ranking-title {
+  display: flex;
+  align-items: center;
+  gap: 0.8rem;
+}
+
+.ranking-title h1 {
+  font-size: 2.5rem;
+  font-weight: 800;
+  background: linear-gradient(to right, #F7D02C, #EE8130);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.ranking-container {
+  max-width: 800px;
+  margin: 0 auto;
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.ranking-info-box {
+  padding: 1.5rem;
+  background: rgba(99, 144, 240, 0.1);
+  border-color: rgba(99, 144, 240, 0.3);
+  text-align: center;
+}
+
+.ranking-info-box h3 {
+  color: #6390F0;
+  margin-bottom: 0.5rem;
+}
+
+.ranking-info-box p {
+  color: var(--text-muted);
+  font-size: 0.95rem;
+  line-height: 1.5;
+}
+
+.ranking-list {
+  display: flex;
+  flex-direction: column;
+  padding: 1rem;
+  gap: 0.5rem;
+}
+
+.ranking-row {
+  display: flex;
+  align-items: center;
+  padding: 1rem 1.5rem;
+  background: rgba(0, 0, 0, 0.2);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+  border-radius: 12px;
+  transition: all 0.2s;
+}
+
+.ranking-row:hover {
+  background: rgba(0, 0, 0, 0.4);
+  transform: scale(1.01);
+}
+
+.ranking-row.is-me {
+  background: rgba(247, 208, 44, 0.15);
+  border-color: rgba(247, 208, 44, 0.4);
+}
+
+.rank-position {
+  width: 60px;
+  font-size: 1.3rem;
+  font-weight: 800;
+  color: var(--text-muted);
+  display: flex;
+  align-items: center;
+}
+
+.rank-name {
+  flex: 1;
+  font-size: 1.2rem;
+  font-weight: 700;
+  color: var(--text-color);
+  display: flex;
+  align-items: center;
+}
+
+.is-me .rank-name {
+  color: #F7D02C;
+}
+
+.rank-score {
+  font-size: 1rem;
+  color: var(--text-muted);
+  font-weight: 600;
+}
+
+.score-number {
+  font-size: 1.3rem;
+  color: white;
+  font-weight: 800;
+  margin-right: 0.3rem;
+}
+
+.ranking-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 3rem 0;
+  color: var(--text-muted);
+  gap: 1rem;
+}
+
+.ranking-loading svg {
+  color: #F7D02C;
+}
