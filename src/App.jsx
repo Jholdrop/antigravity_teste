@@ -276,6 +276,9 @@ function App() {
     setTeam((prev) => prev.filter((entry) => entry.id !== id));
   };
 
+  const getBattleTeam = () =>
+    team.length ? team.slice(0, 6) : caughtPokemons.slice(0, 6);
+
   if (authLoading) {
     return (
       <div className="login-screen">
@@ -386,7 +389,13 @@ function App() {
   }
 
   if (view === 'battle') {
-    return <BattleArena team={team} onExit={() => setView('pokedex')} />;
+    return (
+      <BattleArena
+        team={getBattleTeam()}
+        playerName={currentUser?.name || 'Voce'}
+        onExit={() => setView('pokedex')}
+      />
+    );
   }
 
   if (view === 'ranking') {
@@ -420,6 +429,19 @@ function App() {
     );
   }
 
+  if (view === 'pvp-battle') {
+    return (
+      <MultiplayerLobby
+        mode="battle"
+        onBack={() => setView('pokedex')}
+        caughtIds={caughtPokemons.map((pokemon) => pokemon.id)}
+        onCatch={handleCatch}
+        userName={currentUser?.name}
+        battleTeam={getBattleTeam()}
+      />
+    );
+  }
+
   return (
     <div className="app-container">
       <header className="app-header animate-fade-in">
@@ -444,6 +466,14 @@ function App() {
           <button className="btn-quiz-header btn-online" onClick={() => setView('multiplayer')}>
             <Users size={19} />
             Modo Online
+          </button>
+          <button className="btn-quiz-header btn-battle-header" onClick={() => setView('battle')}>
+            <Swords size={19} />
+            Batalhar
+          </button>
+          <button className="btn-quiz-header btn-pvp-header" onClick={() => setView('pvp-battle')}>
+            <Users size={19} />
+            Batalhar PvP
           </button>
           <button className="btn-quiz-header" onClick={() => setView('quiz')}>
             <HelpCircle size={19} />

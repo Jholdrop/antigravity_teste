@@ -1,4 +1,4 @@
-import React, { useRef, useEffect } from 'react';
+import { useRef, useEffect } from 'react';
 
 /* ── Type palette ── */
 const T = {
@@ -25,7 +25,7 @@ const T = {
 const rgba = (c, a=1, dr=0, dg=0, db=0) =>
   `rgba(${Math.min(255,c.r+dr)},${Math.min(255,c.g+dg)},${Math.min(255,c.b+db)},${a})`;
 
-const lerp = (a, b, t) => a + (b - a) * t;
+const clamp01 = (value) => Math.max(0, Math.min(1, value));
 
 /* ═══════════════════════════════════════════════════════
    RENDERERS — cada um desenha um frame do seu efeito
@@ -124,7 +124,7 @@ function lightning(ctx, p, c, W, H, fp, pw, time) {
       if (t2 > p * 1.3) break;
       pts.push({
         x: sx + (ex - sx) * t2,
-        y: H*.5 + yOff + (Math.random()-.5) * (24 + pw / 7),
+        y: H*.5 + yOff + Math.sin(time / 70 + i * 2.31 + b) * (12 + pw / 14),
       });
     }
     if (pts.length < 2) continue;
@@ -132,7 +132,7 @@ function lightning(ctx, p, c, W, H, fp, pw, time) {
     // Fat glow
     ctx.shadowColor = rgba(c, 1);
     ctx.shadowBlur = 28 + pw / 4;
-    ctx.strokeStyle = rgba(c, 0.45 + Math.random() * .3);
+    ctx.strokeStyle = rgba(c, 0.55 + Math.sin(time / 90 + b) * 0.12);
     ctx.lineWidth = 7 + pw / 20;
     ctx.beginPath(); ctx.moveTo(pts[0].x, pts[0].y);
     for (let p2 = 1; p2 < pts.length; p2++) ctx.lineTo(pts[p2].x, pts[p2].y);
@@ -152,7 +152,10 @@ function lightning(ctx, p, c, W, H, fp, pw, time) {
       ctx.strokeStyle = rgba(c, 0.5);
       ctx.lineWidth = 2;
       ctx.beginPath(); ctx.moveTo(bPt.x, bPt.y);
-      ctx.lineTo(bPt.x + (Math.random()-.5)*60, bPt.y + (Math.random()-.5)*50);
+      ctx.lineTo(
+        bPt.x + Math.sin(time / 80 + b) * 38,
+        bPt.y + Math.cos(time / 95 + b) * 32
+      );
       ctx.stroke();
     }
   }
@@ -192,7 +195,7 @@ function meteor(ctx, p, c, W, H, fp, pw, time) {
     // Rock core
     ctx.save();
     ctx.translate(mx, my);
-    ctx.rotate(lp * Math.PI * 5 + seed);
+    ctx.rotate(lp * Math.PI * 5 + seed + time / 520);
     ctx.beginPath();
     const faces = 7;
     for (let f = 0; f < faces; f++) {
@@ -380,6 +383,106 @@ function sparkle(ctx, p, c, W, H, fp, pw, time) {
 
 const RENDERERS = { flame, jet, lightning, meteor, orb, shadow, wave, leaf, crystal, sparkle };
 
+function drawCasterAura(ctx, p, c, W, H, fp, pw, time) {
+  const charge = clamp01(1 - p / 0.28);
+  if (charge <= 0) return;
+
+  const x = fp ? W * 0.18 : W * 0.82;
+  const y = fp ? H * 0.66 : H * 0.36;
+  const pulse = 1 + Math.sin(time / 55) * 0.16;
+  const radius = (42 + pw / 2.8) * pulse * charge;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  for (let ring = 0; ring < 4; ring += 1) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius * (0.35 + ring * 0.28), 0, Math.PI * 2);
+    ctx.strokeStyle = rgba(c, 0.22 * charge * (1 - ring * 0.15), 60, 60, 60);
+    ctx.lineWidth = 3 + ring * 1.2;
+    ctx.shadowColor = rgba(c, 0.9);
+    ctx.shadowBlur = 18 + pw / 4;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawSpeedLines(ctx, p, c, W, H, fp, pw, time) {
+  const active = Math.sin(Math.PI * clamp01(p));
+  if (active <= 0.02) return;
+
+  const dir = fp ? 1 : -1;
+  const count = 10 + Math.floor(pw / 12);
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+  ctx.lineCap = 'round';
+  for (let i = 0; i < count; i += 1) {
+    const lane = (i / count) * H;
+    const drift = Math.sin(time / 90 + i) * 16;
+    const x = fp ? W * (0.08 + p * 0.7) : W * (0.92 - p * 0.7);
+    const len = (55 + pw / 2.2) * active;
+    ctx.beginPath();
+    ctx.moveTo(x - dir * len * 0.65, lane + drift);
+    ctx.lineTo(x + dir * len, lane + drift * 0.35);
+    ctx.strokeStyle = rgba(c, 0.08 + active * 0.18, 90, 90, 90);
+    ctx.lineWidth = 1 + (i % 3) + pw / 48;
+    ctx.shadowColor = rgba(c, 0.6);
+    ctx.shadowBlur = 10;
+    ctx.stroke();
+  }
+  ctx.restore();
+}
+
+function drawImpactBurst(ctx, p, c, W, H, fp, pw, time) {
+  const ip = clamp01((p - 0.64) / 0.36);
+  if (ip <= 0) return;
+
+  const x = fp ? W * 0.78 : W * 0.22;
+  const y = fp ? H * 0.38 : H * 0.63;
+  const ease = 1 - Math.pow(1 - ip, 3);
+  const fade = 1 - ip;
+  const radius = (36 + pw / 1.9) * ease;
+
+  ctx.save();
+  ctx.globalCompositeOperation = 'lighter';
+
+  for (let ring = 0; ring < 3; ring += 1) {
+    ctx.beginPath();
+    ctx.arc(x, y, radius * (0.45 + ring * 0.32), 0, Math.PI * 2);
+    ctx.strokeStyle = ring === 0 ? `rgba(255,255,255,${0.78 * fade})` : rgba(c, 0.38 * fade, 70, 70, 70);
+    ctx.lineWidth = (7 - ring * 1.7) * fade;
+    ctx.shadowColor = rgba(c, 0.95);
+    ctx.shadowBlur = 28;
+    ctx.stroke();
+  }
+
+  const shards = 16 + Math.floor(pw / 8);
+  for (let i = 0; i < shards; i += 1) {
+    const angle = (i / shards) * Math.PI * 2 + Math.sin(time / 180 + i) * 0.18;
+    const dist = radius * (0.35 + (i % 5) * 0.12);
+    const sx = x + Math.cos(angle) * dist;
+    const sy = y + Math.sin(angle) * dist * 0.72;
+    const size = (3 + (i % 4) + pw / 35) * fade;
+
+    ctx.save();
+    ctx.translate(sx, sy);
+    ctx.rotate(angle + time / 260);
+    ctx.beginPath();
+    ctx.moveTo(size * 1.8, 0);
+    ctx.lineTo(0, size * 0.42);
+    ctx.lineTo(-size * 1.8, 0);
+    ctx.lineTo(0, -size * 0.42);
+    ctx.closePath();
+    ctx.fillStyle = i % 3 === 0 ? `rgba(255,255,255,${0.88 * fade})` : rgba(c, 0.82 * fade, 45, 45, 45);
+    ctx.shadowColor = rgba(c, 0.8);
+    ctx.shadowBlur = 14;
+    ctx.fill();
+    ctx.restore();
+  }
+
+  ctx.restore();
+}
+
 /* ═══════════════════════════════════════════════════════
    AttackEffect component
 ════════════════════════════════════════════════════════ */
@@ -393,27 +496,33 @@ const AttackEffect = ({ move, fromPlayer, active, onComplete }) => {
     if (!active || !canvasRef.current) return;
 
     const canvas = canvasRef.current;
-    canvas.width  = canvas.offsetWidth  || 800;
-    canvas.height = canvas.offsetHeight || 400;
+    const width = canvas.offsetWidth || 800;
+    const height = canvas.offsetHeight || 400;
+    const dpr = Math.min(window.devicePixelRatio || 1, 2);
+    canvas.width = Math.floor(width * dpr);
+    canvas.height = Math.floor(height * dpr);
     const ctx = canvas.getContext('2d');
+    ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
     const cfg    = T[move?.type] || T.normal;
     const power  = move?.power  || 50;
     const render = RENDERERS[cfg.style] || orb;
-    // duration scales with power — big attacks linger longer
-    const duration = 600 + power * 5;
+    const duration = 820 + power * 5.8;
 
     const tick = (ts) => {
       if (!startRef.current) startRef.current = ts;
       const t = Math.min((ts - startRef.current) / duration, 1);
 
-      ctx.clearRect(0, 0, canvas.width, canvas.height);
-      render(ctx, t, cfg, canvas.width, canvas.height, fromPlayer, power, ts);
+      ctx.clearRect(0, 0, width, height);
+      drawCasterAura(ctx, t, cfg, width, height, fromPlayer, power, ts);
+      drawSpeedLines(ctx, t, cfg, width, height, fromPlayer, power, ts);
+      render(ctx, t, cfg, width, height, fromPlayer, power, ts);
+      drawImpactBurst(ctx, t, cfg, width, height, fromPlayer, power, ts);
 
       if (t < 1) {
         rafRef.current = requestAnimationFrame(tick);
       } else {
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        ctx.clearRect(0, 0, width, height);
         onComplete?.();
       }
     };
@@ -423,15 +532,17 @@ const AttackEffect = ({ move, fromPlayer, active, onComplete }) => {
       cancelAnimationFrame(rafRef.current);
       startRef.current = null;
     };
-  }, [active, move, fromPlayer]);
+  }, [active, move, fromPlayer, onComplete]);
 
   return (
     <canvas
       ref={canvasRef}
+      className="attack-canvas"
       style={{
         position: 'absolute', inset: 0,
         width: '100%', height: '100%',
-        pointerEvents: 'none', zIndex: 50,
+        pointerEvents: 'none', zIndex: 75,
+        mixBlendMode: 'screen',
       }}
     />
   );

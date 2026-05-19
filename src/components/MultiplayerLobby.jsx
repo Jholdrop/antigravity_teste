@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import Peer from 'peerjs';
+import BattleArena from './BattleArena';
 import MultiplayerQuiz from './MultiplayerQuiz';
 import { ArrowLeft, Wifi, Swords, User, X, Check } from 'lucide-react';
 import './Multiplayer.css';
@@ -11,7 +12,7 @@ const cleanNickname = (value) =>
     .replace(/[^a-z0-9_-]/g, '')
     .slice(0, 20);
 
-const MultiplayerLobby = ({ onBack, caughtIds, onCatch, userName }) => {
+const MultiplayerLobby = ({ onBack, caughtIds, onCatch, userName, mode = 'quiz', battleTeam = [] }) => {
   const [nickname, setNickname] = useState(userName || '');
   const [isNicknameSet, setIsNicknameSet] = useState(Boolean(userName));
   const [peer, setPeer] = useState(null);
@@ -258,6 +259,19 @@ const MultiplayerLobby = ({ onBack, caughtIds, onCatch, userName }) => {
   };
 
   if (connection) {
+    if (mode === 'battle') {
+      return (
+        <BattleArena
+          team={battleTeam}
+          connection={connection}
+          isHost={isHost}
+          playerName={nickname || 'Voce'}
+          opponentName={connection.peer || 'Oponente'}
+          onExit={leaveBattle}
+        />
+      );
+    }
+
     return (
       <MultiplayerQuiz
         connection={connection}
@@ -278,8 +292,12 @@ const MultiplayerLobby = ({ onBack, caughtIds, onCatch, userName }) => {
       <div className="lobby-card glass-panel">
         <div className="lobby-header">
           <Swords size={40} className="lobby-icon" />
-          <h2>Modo Online (1 vs 1)</h2>
-          <p>Escolha seu nick, envie um desafio e espere o outro treinador aceitar.</p>
+          <h2>{mode === 'battle' ? 'Batalha PvP' : 'Modo Online (1 vs 1)'}</h2>
+          <p>
+            {mode === 'battle'
+              ? 'Envie um desafio de batalha e espere o outro treinador aceitar.'
+              : 'Escolha seu nick, envie um desafio e espere o outro treinador aceitar.'}
+          </p>
         </div>
 
         {error && <div className="lobby-error">{error}</div>}

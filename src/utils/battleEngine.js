@@ -1,5 +1,7 @@
 import powerRankingRaw from '../../aaa.aaa?raw';
 
+const battleMovesCache = new Map();
+
 export const calculateTeamBST = (team) =>
   team.reduce((total, pokemon) => total + getBST(pokemon), 0);
 
@@ -97,15 +99,53 @@ const formatMove = (move) => ({
   type: move.type.name,
   damageClass: move.damage_class.name,
   accuracy: move.accuracy || 100,
+  source: 'pokeapi',
+});
+
+const normalizeServerMove = (move) => ({
+  name: move.name,
+  power: Number(move.power || 40),
+  type: move.type || 'normal',
+  damageClass: move.damageClass || move.damage_class || 'physical',
+  accuracy: Number(move.accuracy || 100),
+  source: move.source || 'smogon',
 });
 
 export const fetchMovesForPokemon = async (pokemon) => {
-  try {
-    const pokemonData = typeof pokemon === 'object'
-      ? pokemon
-      : await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemon}`).then((response) => response.json());
+  const pokemonData = typeof pokemon === 'object'
+    ? pokemon
+    : await fetch(`https://pokeapi.co/api/v2/pokemon/${pokemon}`).then((response) => response.json());
+  const cacheKey = `${pokemonData.id}:${pokemonData.name}`;
+  const cached = battleMovesCache.get(cacheKey);
+  if (cached) return cached;
 
-    const types = pokemonData.types.map((entry) => entry.type.name);
+  const types = pokemonData.types.map((entry) => entry.type.name);
+
+  try {
+    const response = await fetch(
+      `/.netlify/functions/getBattleMoveset?pokemon=${encodeURIComponent(pokemonData.name)}&id=${encodeURIComponent(
+        pokemonData.id
+      )}&types=${encodeURIComponent(types.join(','))}`,
+      { cache: 'force-cache' }
+    );
+
+    if (response.ok) {
+      const data = await response.json();
+      const serverMoves = (data.moves || [])
+        .map(normalizeServerMove)
+        .filter((move) => move.power > 0)
+        .slice(0, 4);
+
+      if (serverMoves.length >= 4) {
+        battleMovesCache.set(cacheKey, serverMoves);
+        return serverMoves;
+      }
+    }
+  } catch {
+    // Em dev:vite as Netlify Functions nao existem; a PokéAPI direta cobre esse caso.
+  }
+
+  try {
     const learned = new Set((pokemonData.moves || []).map((entry) => entry.move.name));
     const preferred = [
       ...types.flatMap((type) => STRONG_MOVES_BY_TYPE[type] || []),
@@ -137,6 +177,7 @@ export const fetchMovesForPokemon = async (pokemon) => {
       damagingMoves.push({ name: 'tackle', power: 40, type: 'normal', damageClass: 'physical', accuracy: 100 });
     }
 
+    battleMovesCache.set(cacheKey, damagingMoves);
     return damagingMoves;
   } catch (error) {
     console.error('Error fetching moves', error);
@@ -153,6 +194,36 @@ const getRandomCandidateIds = (count = 22) => {
   const ids = new Set();
   while (ids.size < count) ids.add(Math.floor(Math.random() * 1025) + 1);
   return [...ids];
+};
+
+export const generateRentalTeam = async (count = 3) => {
+  const preferredPools = [
+    [6, 9, 25, 94, 130, 149, 248, 282, 373, 376, 445, 448, 635, 658, 700, 778],
+    [3, 59, 68, 121, 143, 181, 212, 230, 254, 260, 306, 330, 350, 392, 468, 475],
+    [65, 80, 131, 169, 197, 214, 229, 242, 289, 407, 462, 474, 477, 479, 534, 571],
+  ];
+  const ids = [];
+
+  for (const pool of preferredPools) {
+    const available = pool.filter((id) => !ids.includes(id));
+    ids.push(available[Math.floor(Math.random() * available.length)]);
+    if (ids.length >= count) break;
+  }
+
+  while (ids.length < count) {
+    const id = getRandomCandidateIds(1)[0];
+    if (!ids.includes(id)) ids.push(id);
+  }
+
+  const team = await Promise.all(
+    ids.slice(0, count).map(async (id) => {
+      const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
+      if (!response.ok) throw new Error('Rental Pokemon unavailable');
+      return response.json();
+    })
+  );
+
+  return team;
 };
 
 export const generateNPCTeam = async (playerTeam) => {
@@ -191,7 +262,9 @@ export const generateNPCTeam = async (playerTeam) => {
     try {
       const response = await fetch(`https://pokeapi.co/api/v2/pokemon/${id}`);
       if (response.ok) npcTeam.push(await response.json());
-    } catch {}
+    } catch {
+      // Tenta outro candidato se a PokéAPI falhar para esse ID.
+    }
   }
 
   return npcTeam;
