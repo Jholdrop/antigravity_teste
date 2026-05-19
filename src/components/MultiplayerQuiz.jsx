@@ -5,24 +5,24 @@ import '../components/PokemonQuiz.css';
 
 const MAX_ROUNDS = 5;
 
-const createSessionId = () => {
-  const key = 'antigravity_multiplayer_session';
-  const existing = sessionStorage.getItem(key);
-  if (existing) return existing;
+const createId = (prefix) =>
+  window.crypto?.randomUUID?.() || `${prefix}-${Date.now()}-${Math.random().toString(36).slice(2)}`;
 
-  const generated =
-    window.crypto?.randomUUID?.() || `sess-${Date.now()}-${Math.random().toString(36).slice(2)}`;
-  sessionStorage.setItem(key, generated);
-  return generated;
-};
+const getStartedAt = () => Date.now();
 
-const getTimestamp = () => Date.now();
+const normalizeGuess = (value) =>
+  String(value || '')
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9\s-]/g, '')
+    .replace(/\s+/g, '-')
+    .replace(/-+/g, '-')
+    .replace(/^-|-$/g, '');
 
 const MultiplayerQuiz = ({ connection, isHost, onBack }) => {
   const [roundData, setRoundData] = useState(null);
-  const [challengeId, setChallengeId] = useState('');
-  const [challengeToken, setChallengeToken] = useState('');
-  const [startedAt, setStartedAt] = useState(getTimestamp);
   const [loading, setLoading] = useState(true);
   const [validationMessage, setValidationMessage] = useState('');
   const [cluesRevealed, setCluesRevealed] = useState(1);
@@ -37,9 +37,175 @@ const MultiplayerQuiz = ({ connection, isHost, onBack }) => {
 
   const inputRef = useRef(null);
   const hintTimerRef = useRef(null);
-  const sessionIdRef = useRef(createSessionId());
+  const nextRoundTimerRef = useRef(null);
+  const startRetryTimerRef = useRef(null);
+  const startedOnceRef = useRef(false);
+  const startInFlightRef = useRef(false);
+  const gameOverSentRef = useRef(false);
+  const sessionIdRef = useRef(createId('mp-session'));
+  const roundDataRef = useRef(null);
+  const challengeRef = useRef({ challengeId: '', challengeToken: '', startedAt: 0, roundId: '' });
   const scoresRef = useRef(scores);
   const roundRef = useRef(round);
+  const gameStateRef = useRef(gameState);
+
+  const setGameStateSafe = (nextState) => {
+    gameStateRef.current = nextState;
+    setGameState(nextState);
+  };
+
+  const setScoresSafe = (updater) => {
+    setScores((prev) => {
+      const next = typeof updater === 'function' ? updater(prev) : updater;
+      scoresRef.current = next;
+      return next;
+    });
+  };
+
+  const sendSafe = (payload) => {
+    if (connection?.open) {
+      connection.send(payload);
+    }
+  };
+
+  const stopRoundTimers = () => {
+    clearInterval(hintTimerRef.current);
+    clearTimeout(nextRoundTimerRef.current);
+    clearTimeout(startRetryTimerRef.current);
+  };
+
+  const startHintTimer = (data) => {
+    if (!isHost) return;
+
+    clearInterval(hintTimerRef.current);
+    let currentClues = 1;
+
+    hintTimerRef.current = setInterval(() => {
+      if (gameStateRef.current !== 'playing') {
+        clearInterval(hintTimerRef.current);
+        return;
+      }
+
+      if (currentClues >= data.clues.length) {
+        clearInterval(hintTimerRef.current);
+        return;
+      }
+
+      currentClues += 1;
+      setCluesRevealed(currentClues);
+      sendSafe({ type: 'REVEAL_HINT', roundId: data.roundId, count: currentClues });
+    }, 5000);
+  };
+
+  const handleNewRoundData = (data) => {
+    const roundNumber = Number(data.round || 1);
+
+    stopRoundTimers();
+    roundDataRef.current = data;
+    roundRef.current = roundNumber;
+
+    setRoundData(data);
+    setRound(roundNumber);
+    setGameStateSafe('playing');
+    setRoundWinner(null);
+    setRevealedName('');
+    setCluesRevealed(1);
+    setGuess('');
+    setWrongGuesses([]);
+    setValidationMessage('');
+    setBlobUrl('');
+    setLoading(false);
+
+    startHintTimer(data);
+    window.setTimeout(() => inputRef.current?.focus(), 0);
+  };
+
+  const finishGame = () => {
+    stopRoundTimers();
+    setGameStateSafe('game_over');
+    setLoading(false);
+  };
+
+  const startNewRound = async () => {
+    if (!isHost || startInFlightRef.current || gameStateRef.current === 'game_over') return;
+
+    if (roundRef.current >= MAX_ROUNDS) {
+      if (!gameOverSentRef.current) {
+        gameOverSentRef.current = true;
+        sendSafe({ type: 'GAME_OVER' });
+      }
+      finishGame();
+      return;
+    }
+
+    startInFlightRef.current = true;
+    setLoading(true);
+    setValidationMessage('');
+
+    try {
+      const secureRound = await getSecureQuizRound();
+      const nextRound = roundRef.current + 1;
+      const roundId = createId(`round-${nextRound}`);
+      const startedAt = getStartedAt();
+
+      challengeRef.current = {
+        challengeId: secureRound.challengeId,
+        challengeToken: secureRound.challengeToken,
+        startedAt,
+        roundId,
+      };
+
+      const payload = {
+        type: 'NEW_ROUND',
+        roundId,
+        round: nextRound,
+        clues: secureRound.clues,
+        mainType: secureRound.mainType,
+        image: secureRound.image,
+      };
+
+      sendSafe(payload);
+      handleNewRoundData(payload);
+    } catch (error) {
+      console.error(error);
+      setValidationMessage('Erro ao iniciar a rodada. Tentando novamente...');
+      startRetryTimerRef.current = window.setTimeout(startNewRound, 1200);
+    } finally {
+      startInFlightRef.current = false;
+    }
+  };
+
+  const applyRoundResult = (winner, realName, { notifyOpponent = false } = {}) => {
+    if (gameStateRef.current !== 'playing') return;
+
+    const normalizedWinner = winner === 'host' ? 'host' : 'opponent';
+    const didIWin = (isHost && normalizedWinner === 'host') || (!isHost && normalizedWinner === 'opponent');
+
+    clearInterval(hintTimerRef.current);
+    setGameStateSafe('round_end');
+    setRevealedName(realName || 'pokemon');
+    setRoundWinner(didIWin ? 'me' : 'opponent');
+    setValidationMessage('');
+
+    setScoresSafe((prev) =>
+      didIWin
+        ? { ...prev, me: prev.me + 1 }
+        : { ...prev, opponent: prev.opponent + 1 }
+    );
+
+    if (notifyOpponent) {
+      sendSafe({
+        type: 'ROUND_END',
+        roundId: challengeRef.current.roundId,
+        winner: normalizedWinner,
+        realName: realName || 'pokemon',
+      });
+    }
+
+    if (isHost) {
+      nextRoundTimerRef.current = window.setTimeout(startNewRound, 4000);
+    }
+  };
 
   useEffect(() => {
     scoresRef.current = scores;
@@ -48,6 +214,10 @@ const MultiplayerQuiz = ({ connection, isHost, onBack }) => {
   useEffect(() => {
     roundRef.current = round;
   }, [round]);
+
+  useEffect(() => {
+    gameStateRef.current = gameState;
+  }, [gameState]);
 
   useEffect(() => {
     let urlToRevoke = '';
@@ -66,195 +236,175 @@ const MultiplayerQuiz = ({ connection, isHost, onBack }) => {
     };
   }, [roundData?.image]);
 
-  const handleNewRoundData = (data) => {
-    setRoundData(data);
-    setRound(data.round);
-    setGameState('playing');
-    setRoundWinner(null);
-    setRevealedName('');
-    setCluesRevealed(1);
-    setGuess('');
-    setWrongGuesses([]);
-    setBlobUrl('');
-    setLoading(false);
-
-    if (inputRef.current) inputRef.current.focus();
-
-    if (isHost) {
-      clearInterval(hintTimerRef.current);
-      let currentClues = 1;
-      hintTimerRef.current = setInterval(() => {
-        if (currentClues < data.clues.length) {
-          currentClues += 1;
-          connection.send({ type: 'REVEAL_HINT', count: currentClues });
-          setCluesRevealed(currentClues);
-        } else {
-          clearInterval(hintTimerRef.current);
-        }
-      }, 5000);
-    }
-  };
-
-  const startNewRound = async () => {
-    if (!isHost) return;
-
-    setLoading(true);
-    setValidationMessage('');
-    setStartedAt(getTimestamp());
-
-    if (roundRef.current >= MAX_ROUNDS) {
-      connection.send({ type: 'GAME_OVER', scores: scoresRef.current });
-      setGameState('game_over');
-      setLoading(false);
-      return;
-    }
-
-    try {
-      const data = await getSecureQuizRound();
-      const nextRound = roundRef.current + 1;
-      const payload = {
-        type: 'NEW_ROUND',
-        clues: data.clues,
-        mainType: data.mainType,
-        image: data.image,
-        round: nextRound,
-      };
-
-      setChallengeId(data.challengeId);
-      setChallengeToken(data.challengeToken);
-      connection.send(payload);
-      handleNewRoundData(payload);
-    } catch (error) {
-      console.error(error);
-      setValidationMessage('Erro ao iniciar a rodada. Tentando novamente...');
-      setTimeout(() => startNewRound(), 1200);
-    }
-  };
-
-  const handleRoundEnd = (winner, realName) => {
-    clearInterval(hintTimerRef.current);
-    setGameState('round_end');
-    setRevealedName(realName);
-
-    if (winner === 'host') {
-      setRoundWinner('me');
-      setScores((prev) => ({ ...prev, me: prev.me + 1 }));
-    } else {
-      setRoundWinner('opponent');
-      setScores((prev) => ({ ...prev, opponent: prev.opponent + 1 }));
-    }
-
-    connection.send({ type: 'ROUND_END', winner, realName });
-
-    setTimeout(() => {
-      if (isHost) startNewRound();
-    }, 4000);
-  };
-
   useEffect(() => {
     if (!connection) return undefined;
-    if (isHost && roundRef.current === 0) startNewRound();
 
     const handleData = async (data) => {
+      if (!data || typeof data !== 'object') return;
+
       if (data.type === 'NEW_ROUND') {
-        handleNewRoundData(data);
+        if (!isHost && data.roundId) {
+          handleNewRoundData(data);
+        }
         return;
       }
 
       if (data.type === 'REVEAL_HINT') {
-        setCluesRevealed(data.count);
+        if (data.roundId === roundDataRef.current?.roundId) {
+          setCluesRevealed(data.count);
+        }
         return;
       }
 
-      if (data.type === 'GUESS_SUBMIT' && isHost && gameState === 'playing') {
-        if (!challengeId || !challengeToken) {
-          connection.send({ type: 'GUESS_WRONG', guess: data.guess });
+      if (data.type === 'GUESS_SUBMIT') {
+        if (!isHost || gameStateRef.current !== 'playing') return;
+        if (data.roundId !== challengeRef.current.roundId) return;
+
+        const currentChallenge = challengeRef.current;
+        if (!currentChallenge.challengeId || !currentChallenge.challengeToken) {
+          sendSafe({
+            type: 'GUESS_REJECTED',
+            roundId: data.roundId,
+            message: 'A rodada ainda nao esta pronta. Tente de novo.',
+          });
           return;
         }
 
         try {
           const result = await submitQuizGuess({
-            challengeId,
-            challengeToken,
+            challengeId: currentChallenge.challengeId,
+            challengeToken: currentChallenge.challengeToken,
             guess: data.guess,
-            startedAt,
-            sessionId: sessionIdRef.current,
+            startedAt: currentChallenge.startedAt,
+            sessionId: `${sessionIdRef.current}:opponent`,
           });
 
+          if (data.roundId !== challengeRef.current.roundId || gameStateRef.current !== 'playing') return;
+
           if (result.correct) {
-            handleRoundEnd('opponent', result.pokemonName || data.guess);
+            applyRoundResult('opponent', result.pokemonName || data.guess, { notifyOpponent: true });
           } else {
-            connection.send({ type: 'GUESS_WRONG', guess: data.guess });
+            sendSafe({
+              type: 'GUESS_WRONG',
+              roundId: data.roundId,
+              guess: data.displayGuess || data.guess,
+              message: result.message || 'Resposta incorreta.',
+            });
           }
-        } catch {
-          connection.send({ type: 'GUESS_WRONG', guess: data.guess });
+        } catch (error) {
+          sendSafe({
+            type: 'GUESS_REJECTED',
+            roundId: data.roundId,
+            message: error.message || 'Nao foi possivel validar agora. Tente novamente.',
+          });
         }
 
         return;
       }
 
       if (data.type === 'GUESS_WRONG') {
-        setWrongGuesses((prev) => [...prev, data.guess]);
+        if (data.roundId === roundDataRef.current?.roundId) {
+          setWrongGuesses((prev) => [...prev, data.guess]);
+          setValidationMessage(data.message || 'Resposta incorreta.');
+        }
+        return;
+      }
+
+      if (data.type === 'GUESS_REJECTED') {
+        if (data.roundId === roundDataRef.current?.roundId) {
+          setValidationMessage(data.message || 'Tente novamente.');
+        }
         return;
       }
 
       if (data.type === 'ROUND_END') {
-        clearInterval(hintTimerRef.current);
-        setGameState('round_end');
-        setRevealedName(data.realName);
-        setRoundWinner(data.winner === 'host' ? 'opponent' : 'me');
-        if (data.winner === 'host') {
-          setScores((prev) => ({ ...prev, opponent: prev.opponent + 1 }));
-        } else {
-          setScores((prev) => ({ ...prev, me: prev.me + 1 }));
+        if (data.roundId === roundDataRef.current?.roundId) {
+          applyRoundResult(data.winner, data.realName);
         }
         return;
       }
 
       if (data.type === 'GAME_OVER') {
-        setGameState('game_over');
-        clearInterval(hintTimerRef.current);
+        finishGame();
+        return;
+      }
+
+      if (data.type === 'OPPONENT_LEFT') {
+        stopRoundTimers();
+        setValidationMessage('Oponente saiu da partida.');
+        setGameStateSafe('game_over');
+      }
+    };
+
+    const handleClose = () => {
+      stopRoundTimers();
+      if (gameStateRef.current !== 'game_over') {
+        setValidationMessage('Oponente desconectou.');
+        setGameStateSafe('game_over');
       }
     };
 
     connection.on('data', handleData);
+    connection.on('close', handleClose);
+
+    if (isHost && !startedOnceRef.current) {
+      startedOnceRef.current = true;
+      startNewRound();
+    }
 
     return () => {
       connection.off?.('data', handleData);
-      clearInterval(hintTimerRef.current);
+      connection.off?.('close', handleClose);
+      stopRoundTimers();
     };
-    // PeerJS subscriptions are intentionally scoped to connection/session state.
+    // Um unico listener por conexao evita rodadas duplicadas e estado antigo.
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [challengeId, challengeToken, connection, gameState, isHost, startedAt]);
+  }, [connection, isHost]);
 
   const handleGuess = async () => {
-    if (!guess.trim() || gameState !== 'playing') return;
+    if (!guess.trim() || gameStateRef.current !== 'playing') return;
 
     const typedGuess = guess.trim();
-    const normalized = typedGuess.toLowerCase().replace(/\s+/g, '-');
+    const normalized = normalizeGuess(typedGuess);
     setGuess('');
+    setValidationMessage('');
+
+    if (!normalized) return;
 
     if (!isHost) {
-      connection.send({ type: 'GUESS_SUBMIT', guess: normalized });
+      if (!roundDataRef.current?.roundId) {
+        setValidationMessage('Aguardando a rodada ficar pronta.');
+        return;
+      }
+
+      sendSafe({
+        type: 'GUESS_SUBMIT',
+        roundId: roundDataRef.current.roundId,
+        guess: normalized,
+        displayGuess: typedGuess,
+      });
       return;
     }
 
-    if (!challengeId || !challengeToken) {
+    const currentChallenge = challengeRef.current;
+    if (!currentChallenge.challengeId || !currentChallenge.challengeToken) {
       setValidationMessage('Desafio indisponivel, tente novamente.');
       return;
     }
 
     try {
       const response = await submitQuizGuess({
-        challengeId,
-        challengeToken,
+        challengeId: currentChallenge.challengeId,
+        challengeToken: currentChallenge.challengeToken,
         guess: normalized,
-        startedAt,
-        sessionId: sessionIdRef.current,
+        startedAt: currentChallenge.startedAt,
+        sessionId: `${sessionIdRef.current}:host`,
       });
 
+      if (currentChallenge.roundId !== challengeRef.current.roundId || gameStateRef.current !== 'playing') return;
+
       if (response.correct) {
-        handleRoundEnd('host', response.pokemonName || normalized);
+        applyRoundResult('host', response.pokemonName || normalized, { notifyOpponent: true });
       } else {
         setWrongGuesses((prev) => [...prev, typedGuess]);
         setValidationMessage(response.message || 'Resposta incorreta.');
@@ -263,21 +413,6 @@ const MultiplayerQuiz = ({ connection, isHost, onBack }) => {
       setValidationMessage(error.message || 'Erro ao validar o chute.');
     }
   };
-
-  if (loading || !roundData) {
-    return (
-      <div className="quiz-page">
-        <div className="quiz-loading">
-          <div className="pokeball-anim">
-            <div className="pb-top" />
-            <div className="pb-middle" />
-            <div className="pb-bottom" />
-          </div>
-          <p>{isHost ? 'Gerando desafio seguro...' : 'Aguardando o host gerar a rodada...'}</p>
-        </div>
-      </div>
-    );
-  }
 
   if (gameState === 'game_over') {
     const iWon = scores.me > scores.opponent;
@@ -290,12 +425,30 @@ const MultiplayerQuiz = ({ connection, isHost, onBack }) => {
           <h1 style={{ fontSize: '2.5rem', marginBottom: '0.5rem' }}>
             {isTie ? 'Empate!' : iWon ? 'Voce venceu!' : 'Voce perdeu!'}
           </h1>
-          <p style={{ fontSize: '1.2rem', color: 'var(--text-muted)', marginBottom: '2rem' }}>
+          <p style={{ fontSize: '1.2rem', color: 'var(--text-muted)', marginBottom: '1rem' }}>
             Placar final: voce {scores.me} x {scores.opponent} oponente
           </p>
+          {validationMessage && (
+            <p style={{ color: 'var(--text-muted)', marginBottom: '2rem' }}>{validationMessage}</p>
+          )}
           <button className="btn-next" onClick={onBack}>
             Voltar ao lobby
           </button>
+        </div>
+      </div>
+    );
+  }
+
+  if (loading || !roundData) {
+    return (
+      <div className="quiz-page">
+        <div className="quiz-loading">
+          <div className="pokeball-anim">
+            <div className="pb-top" />
+            <div className="pb-middle" />
+            <div className="pb-bottom" />
+          </div>
+          <p>{isHost ? 'Gerando desafio seguro...' : 'Aguardando o host gerar a rodada...'}</p>
         </div>
       </div>
     );
