@@ -7,6 +7,7 @@ import './PokemonModal.css';
 const PokemonModal = ({ pokemon, onClose, onAdd, inTeam }) => {
   const [species, setSpecies] = useState(null);
   const [imageType, setImageType] = useState('normal'); // normal, shiny
+  const [modelFailed, setModelFailed] = useState(false);
 
   useEffect(() => {
     if (pokemon) {
@@ -34,6 +35,7 @@ const PokemonModal = ({ pokemon, onClose, onAdd, inTeam }) => {
   const modelUrl = `https://raw.githubusercontent.com/Pokemon-3D-api/assets/refs/heads/main/models/opt/${category}/${pokemon.id}.glb`;
 
   const toggleShiny = () => {
+    setModelFailed(false);
     setImageType(prev => prev === 'normal' ? 'shiny' : 'normal');
   };
 
@@ -66,17 +68,29 @@ const PokemonModal = ({ pokemon, onClose, onAdd, inTeam }) => {
         <div className="modal-body">
           <div className="modal-image-section">
             <div className="image-wrapper">
-              <model-viewer 
-                src={modelUrl}
-                poster={currentImage}
-                alt={pokemon.name}
-                auto-rotate
-                camera-controls
-                shadow-intensity="1"
-                className="modal-pokemon-image"
-                style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
-              >
-              </model-viewer>
+              {modelFailed ? (
+                <img
+                  src={currentImage}
+                  alt={pokemon.name}
+                  className="modal-pokemon-image modal-pokemon-fallback"
+                />
+              ) : (
+                <model-viewer
+                  key={modelUrl}
+                  src={modelUrl}
+                  poster={currentImage}
+                  alt={pokemon.name}
+                  auto-rotate
+                  auto-rotate-delay="0"
+                  rotation-per-second={imageType === 'shiny' ? '38deg' : '28deg'}
+                  camera-controls
+                  shadow-intensity="1"
+                  exposure={imageType === 'shiny' ? '1.18' : '1'}
+                  className={`modal-pokemon-image ${imageType === 'shiny' ? 'modal-shiny-model' : ''}`}
+                  style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
+                  onError={() => setModelFailed(true)}
+                />
+              )}
             </div>
             <button className="shiny-toggle" onClick={toggleShiny}>
               <Sparkles size={16} />

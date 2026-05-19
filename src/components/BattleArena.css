@@ -127,10 +127,86 @@
 
 /* ─── MODEL CONTAINER ─── */
 .model-container {
-  width: 270px;
-  height: 270px;
+  width: min(270px, 30vw);
+  height: min(270px, 30vw);
   filter: drop-shadow(0 24px 16px rgba(0,0,0,0.6));
   will-change: transform, filter;
+  position: relative;
+  display: grid;
+  place-items: center;
+}
+
+.sprite-container {
+  isolation: isolate;
+}
+
+.sprite-container::before {
+  content: '';
+  position: absolute;
+  left: 10%;
+  right: 10%;
+  bottom: 7%;
+  height: 18%;
+  border-radius: 50%;
+  background: radial-gradient(ellipse, rgba(0,0,0,0.46), transparent 70%);
+  filter: blur(2px);
+  z-index: -2;
+}
+
+.sprite-container.type-fire::after {
+  content: '';
+  position: absolute;
+  width: 34px;
+  height: 46px;
+  right: 18%;
+  bottom: 30%;
+  border-radius: 50% 50% 48% 48%;
+  background:
+    radial-gradient(circle at 50% 72%, rgba(255,255,210,0.95) 0 18%, transparent 19%),
+    radial-gradient(circle at 50% 55%, rgba(255,202,40,0.95) 0 35%, transparent 36%),
+    radial-gradient(circle at 50% 52%, rgba(248,113,22,0.92) 0 58%, transparent 59%);
+  filter: blur(0.2px) drop-shadow(0 0 16px rgba(248,113,22,0.9));
+  transform-origin: bottom center;
+  animation: tail-flame 0.34s ease-in-out infinite alternate;
+  z-index: 1;
+  pointer-events: none;
+}
+
+.enemy-side .sprite-container.type-fire::after {
+  left: 17%;
+  right: auto;
+}
+
+.battle-sprite {
+  width: 100%;
+  height: 100%;
+  object-fit: contain;
+  image-rendering: auto;
+  position: relative;
+  z-index: 2;
+  user-select: none;
+  pointer-events: none;
+  animation: sprite-breathe 1.7s ease-in-out infinite;
+}
+
+.player-sprite {
+  transform-origin: bottom center;
+}
+
+.enemy-sprite {
+  transform-origin: bottom center;
+}
+
+@keyframes sprite-breathe {
+  0%, 100% { transform: translateY(0) scale(1, 1); }
+  40% { transform: translateY(-7px) scale(1.025, 0.985); }
+  70% { transform: translateY(-2px) scale(0.985, 1.015); }
+}
+
+@keyframes tail-flame {
+  0% { transform: translateY(2px) rotate(-8deg) scale(0.78, 0.92); opacity: 0.72; }
+  45% { transform: translateY(-3px) rotate(7deg) scale(1.08, 1.22); opacity: 1; }
+  100% { transform: translateY(1px) rotate(-2deg) scale(0.9, 1.04); opacity: 0.88; }
 }
 
 /* ── Idle animations — multi-axis organic sway ── */
@@ -190,6 +266,17 @@
   text-transform: capitalize; color: #f8fafc;
 }
 .hud-id { font-size: 0.82rem; color: #64748b; }
+
+.hud-power {
+  margin-left: auto;
+  font-size: 0.72rem;
+  color: #fbbf24;
+  border: 1px solid rgba(251,191,36,0.26);
+  background: rgba(251,191,36,0.1);
+  padding: 0.12rem 0.42rem;
+  border-radius: 999px;
+  white-space: nowrap;
+}
 
 .hud-hp-wrap { display: flex; align-items: center; gap: 0.5rem; }
 .hp-label { font-size: 0.78rem; font-weight: 700; color: #4ade80; width: 18px; }
@@ -465,3 +552,62 @@
 .anim-strike-enemy      { animation: kf-strike-enemy      0.65s cubic-bezier(0.22,1,0.36,1) forwards !important; }
 .anim-hit-enemy         { animation: kf-hit-enemy         0.8s  cubic-bezier(0.4,0,0.2,1) forwards !important; }
 .anim-hit-player        { animation: kf-hit-player        0.8s  cubic-bezier(0.4,0,0.2,1) forwards !important; }
+
+@media (max-width: 760px) {
+  .battle-arena {
+    height: 100vh;
+    border-radius: 0;
+  }
+
+  .enemy-side {
+    top: 7%;
+    right: 3%;
+  }
+
+  .player-side {
+    bottom: 11%;
+    left: 3%;
+  }
+
+  .model-container {
+    width: min(190px, 38vw);
+    height: min(190px, 38vw);
+  }
+
+  .hud {
+    min-width: 190px;
+    padding: 0.55rem 0.7rem;
+  }
+
+  .hud-name {
+    font-size: 0.95rem;
+  }
+
+  .hud-row {
+    gap: 0.35rem;
+    flex-wrap: wrap;
+  }
+
+  .battle-ui {
+    height: 250px;
+    min-height: 250px;
+    flex-direction: column;
+  }
+
+  .combat-log {
+    min-height: 84px;
+    font-size: 0.82rem;
+  }
+
+  .moves-panel {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .btn-move {
+    padding: 0.48rem 0.55rem;
+  }
+
+  .move-name {
+    font-size: 0.86rem;
+  }
+}

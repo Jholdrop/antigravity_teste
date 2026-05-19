@@ -1,15 +1,18 @@
-import React from 'react';
 import './DamageNumber.css';
 
 const DamageNumber = ({ entries }) =>
-  entries.map(e => (
+  entries.map((entry) => (
     <div
-      key={e.id}
-      className={`damage-number ${e.isCrit ? 'crit' : ''}`}
-      style={{ left: e.x, top: e.y }}
+      key={entry.id}
+      className={`damage-number ${entry.isCrit ? 'crit' : ''} effect-${entry.effectiveness || 'normal'} ${entry.missed ? 'missed' : ''}`}
+      style={{ left: entry.x, top: entry.y }}
     >
-      {e.damage}
-      {e.isCrit && <span className="crit-label">CRÍTICO!</span>}
+      {entry.missed ? 'MISS' : entry.damage}
+      {entry.effectiveness === 'super' && <span className="effect-label">SUPER!</span>}
+      {entry.effectiveness === 'ultra' && <span className="effect-label">X4!</span>}
+      {entry.effectiveness === 'resisted' && <span className="effect-label">RESISTIU</span>}
+      {entry.effectiveness === 'immune' && <span className="effect-label">IMUNE</span>}
+      {entry.isCrit && <span className="crit-label">CRITICO!</span>}
     </div>
   ));
 

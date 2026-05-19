@@ -124,6 +124,17 @@
   animation: float 6s ease-in-out infinite;
 }
 
+.modal-shiny-model {
+  filter:
+    drop-shadow(0 20px 30px rgba(0, 0, 0, 0.5))
+    drop-shadow(0 0 18px rgba(250, 204, 21, 0.45));
+}
+
+.modal-pokemon-fallback {
+  max-width: 100%;
+  max-height: 100%;
+}
+
 @keyframes float {
   0% { transform: translateY(0px); }
   50% { transform: translateY(-15px); }
