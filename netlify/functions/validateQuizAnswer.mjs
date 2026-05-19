@@ -128,6 +128,9 @@ export const handler = async (event) => {
       capturedPokemon: saveResult.capturedPokemon,
       alreadyCaught: Boolean(saveResult.alreadyCaught),
       saved: Boolean(saveResult.saved),
+      score: saveResult.score ?? null,
+      trainerData: saveResult.trainerData || null,
+      saveReason: saveResult.reason || null,
       message,
       stats: { elapsedMs, attemptCount },
     });

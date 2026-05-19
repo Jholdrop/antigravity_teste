@@ -189,7 +189,13 @@ function App() {
     setView('pokedex');
   };
 
-  const handleCatch = (pokemon) => {
+  const handleCatch = (pokemon, trainerData) => {
+    if (trainerData?.caughtPokemons) {
+      setCaughtPokemons(trainerData.caughtPokemons);
+      if (Array.isArray(trainerData.team)) setTeam(trainerData.team);
+      return;
+    }
+
     setCaughtPokemons((prev) =>
       prev.some((entry) => entry.id === pokemon.id) ? prev : [...prev, pokemon]
     );

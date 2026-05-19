@@ -83,15 +83,20 @@ export const awardPokemonToUser = async ({ idToken, pokemon }) => {
 
   let alreadyCaught = false;
   let score = 0;
+  let savedCaughtPokemons = [];
+  let savedTeam = [];
 
   await db.runTransaction(async (transaction) => {
     const snapshot = await transaction.get(userRef);
     const previous = snapshot.exists ? snapshot.data() : {};
     const caughtPokemons = Array.isArray(previous.caughtPokemons) ? previous.caughtPokemons : [];
+    const nextTeam = Array.isArray(previous.team) ? previous.team : [];
 
     alreadyCaught = caughtPokemons.some((entry) => entry?.id === capturedPokemon.id);
     const nextCaught = alreadyCaught ? caughtPokemons : [...caughtPokemons, capturedPokemon];
     score = nextCaught.length;
+    savedCaughtPokemons = nextCaught;
+    savedTeam = nextTeam;
 
     transaction.set(
       userRef,
@@ -102,7 +107,7 @@ export const awardPokemonToUser = async ({ idToken, pokemon }) => {
         photoURL: decoded.picture || previous.photoURL || '',
         caughtPokemons: nextCaught,
         score,
-        team: Array.isArray(previous.team) ? previous.team : [],
+        team: nextTeam,
         lastActive: FieldValue.serverTimestamp(),
         ...(snapshot.exists
           ? {}
@@ -116,6 +121,11 @@ export const awardPokemonToUser = async ({ idToken, pokemon }) => {
     saved: true,
     alreadyCaught,
     score,
+    trainerData: {
+      caughtPokemons: savedCaughtPokemons,
+      score,
+      team: savedTeam,
+    },
     capturedPokemon,
   };
 };

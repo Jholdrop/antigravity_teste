@@ -147,13 +147,20 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
         }
 
         if (!caughtIds.includes(response.pokemonId) && revealedPokemon) {
-          onCatch(revealedPokemon);
+          onCatch(revealedPokemon, response.trainerData);
           setAlreadyCaught(false);
         } else {
           setAlreadyCaught(true);
         }
 
-        setValidationMessage(response.message || 'Parabéns!');
+        if (!response.saved) {
+          setValidationMessage(
+            response.saveReason ||
+              'Resposta correta, mas nao foi possivel salvar na nuvem. Confira as variaveis Firebase Admin no Netlify.'
+          );
+        } else {
+          setValidationMessage(response.message || 'Parabens!');
+        }
       } else {
         setWrongGuesses((prev) => [...prev, answer]);
         setGuess('');
