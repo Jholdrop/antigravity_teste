@@ -4,19 +4,17 @@ import {
   isQuizConfigError,
 } from './_shared/quizCrypto.mjs';
 import { awardPokemonToUser, toCapturedPokemon } from './_shared/firebaseAdmin.mjs';
+import {
+  buildAcceptedPokemonNames,
+  getDisplayPokemonName,
+  isAcceptedPokemonGuess,
+} from './_shared/pokemonNames.mjs';
 
 const BASE_URL = 'https://pokeapi.co/api/v2';
 const RATE_WINDOW_MS = 120000;
 const MAX_ATTEMPTS_PER_WINDOW = 8;
 const MIN_ELAPSED_MS = 450;
 const sessionAttempts = new Map();
-
-const normalizeGuess = (guess) =>
-  String(guess || '')
-    .toLowerCase()
-    .trim()
-    .replace(/[^a-z0-9\-\s]/g, '')
-    .replace(/\s+/g, '-');
 
 const recordAttempt = (sessionId, challengeId) => {
   const key = `${sessionId}:${challengeId}`;
@@ -93,13 +91,16 @@ export const handler = async (event) => {
     if (!pokeRes.ok) throw new Error('Falha ao validar resposta');
 
     const pokemon = await pokeRes.json();
-    const correct = normalizeGuess(guess) === pokemon.name.toLowerCase();
-    const capturedPokemon = correct ? toCapturedPokemon(pokemon) : null;
+    const speciesRes = await fetch(pokemon.species?.url || `${BASE_URL}/pokemon-species/${decoded.pokemonId}`);
+    const species = speciesRes.ok ? await speciesRes.json() : null;
+    const acceptedNames = buildAcceptedPokemonNames(pokemon, species);
+    const correct = isAcceptedPokemonGuess(guess, acceptedNames);
+    const capturedPokemon = correct ? toCapturedPokemon(pokemon, species) : null;
 
     let saveResult = { saved: false, capturedPokemon };
     if (correct && idToken) {
       try {
-        saveResult = await awardPokemonToUser({ idToken, pokemon });
+        saveResult = await awardPokemonToUser({ idToken, pokemon, species });
       } catch (error) {
         console.error('Falha ao salvar captura no Firebase Admin:', error);
         saveResult = {
@@ -124,7 +125,7 @@ export const handler = async (event) => {
       success: correct,
       correct,
       pokemonId: correct ? pokemon.id : null,
-      pokemonName: correct ? pokemon.name : null,
+      pokemonName: correct ? getDisplayPokemonName(pokemon, species) : null,
       capturedPokemon: saveResult.capturedPokemon,
       alreadyCaught: Boolean(saveResult.alreadyCaught),
       saved: Boolean(saveResult.saved),

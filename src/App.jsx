@@ -15,6 +15,7 @@ import {
   loginTrainer,
   logoutTrainer,
   registerTrainer,
+  saveCaughtPokemon,
   saveTrainerTeam,
   signInWithGoogle,
 } from './api/firebase';
@@ -54,6 +55,12 @@ function App() {
     setTeam(data?.team || []);
   };
 
+  const chooseTrainerData = (cloudData, clientData) => {
+    const cloudCount = Array.isArray(cloudData?.caughtPokemons) ? cloudData.caughtPokemons.length : -1;
+    const clientCount = Array.isArray(clientData?.caughtPokemons) ? clientData.caughtPokemons.length : -1;
+    return clientCount > cloudCount ? clientData : cloudData || clientData;
+  };
+
   useEffect(() => {
     if (!isFirebaseConfigured) {
       return undefined;
@@ -69,18 +76,28 @@ function App() {
       }
 
       try {
-        let data = await getCloudTrainerProfile();
-        if (!data) data = await getTrainerData(user);
+        let cloudData = null;
+        let clientData = null;
+
+        try {
+          cloudData = await getCloudTrainerProfile();
+        } catch (cloudError) {
+          console.error('Erro ao obter perfil pelo backend:', cloudError);
+        }
+
+        try {
+          clientData = await getTrainerData(user);
+        } catch (clientError) {
+          console.error('Erro ao obter perfil pelo cliente:', clientError);
+        }
+
+        const data = chooseTrainerData(cloudData, clientData);
+        if (!data) throw new Error('Perfil nao encontrado.');
+
         applyTrainerData(user, data);
       } catch (error) {
         console.error('Erro ao obter dados do treinador:', error);
-        try {
-          const data = await getTrainerData(user);
-          applyTrainerData(user, data);
-        } catch (fallbackError) {
-          console.error('Erro ao obter dados do treinador pelo cliente:', fallbackError);
-          setAuthError('Nao foi possivel carregar sua conta. Tente entrar novamente.');
-        }
+        setAuthError('Nao foi possivel carregar sua conta. Tente entrar novamente.');
       } finally {
         setAuthLoading(false);
       }
@@ -131,6 +148,9 @@ function App() {
     }
     if (error.code === 'auth/popup-closed-by-user') return 'Login com Google cancelado.';
     if (error.code === 'auth/popup-blocked') return 'O navegador bloqueou o popup do Google.';
+    if (error.code === 'auth/operation-not-allowed') {
+      return 'Login por e-mail e senha nao esta habilitado no Firebase Authentication.';
+    }
     return error.message || 'Ocorreu um erro ao processar. Tente novamente.';
   };
 
@@ -201,25 +221,48 @@ function App() {
     setView('pokedex');
   };
 
-  const handleCatch = (pokemon, trainerData) => {
+  const handleCatch = async (pokemon, trainerData) => {
     if (trainerData?.caughtPokemons) {
       setCaughtPokemons(trainerData.caughtPokemons);
       if (Array.isArray(trainerData.team)) setTeam(trainerData.team);
-      return;
+      return { saved: true, trainerData };
     }
+
+    if (!pokemon?.id) return { saved: false };
 
     setCaughtPokemons((prev) =>
       prev.some((entry) => entry.id === pokemon.id) ? prev : [...prev, pokemon]
     );
 
-    getCloudTrainerProfile()
-      .then((data) => {
+    let saved = false;
+
+    if (currentUser?.uid) {
+      try {
+        const data = await saveCaughtPokemon(currentUser.uid, pokemon);
         if (data?.caughtPokemons) {
           setCaughtPokemons(data.caughtPokemons);
           if (Array.isArray(data.team)) setTeam(data.team);
         }
-      })
-      .catch((error) => console.error('Erro ao recarregar Pokedex da nuvem:', error));
+        saved = true;
+      } catch (error) {
+        console.error('Erro ao salvar captura pelo cliente:', error);
+      }
+    }
+
+    if (!saved) {
+      try {
+        const data = await getCloudTrainerProfile();
+        if (data?.caughtPokemons) {
+          setCaughtPokemons(data.caughtPokemons);
+          if (Array.isArray(data.team)) setTeam(data.team);
+          saved = true;
+        }
+      } catch (error) {
+        console.error('Erro ao recarregar Pokedex da nuvem:', error);
+      }
+    }
+
+    return { saved };
   };
 
   const addToTeam = (pokemon) => {

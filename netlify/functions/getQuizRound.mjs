@@ -4,6 +4,7 @@ import {
   generateChallengeToken,
   isQuizConfigError,
 } from './_shared/quizCrypto.mjs';
+import { getDisplayPokemonName } from './_shared/pokemonNames.mjs';
 
 const MAX_POKEMON_ID = 1025;
 const BASE_URL = 'https://pokeapi.co/api/v2';
@@ -30,7 +31,7 @@ const maskName = (text, pokemonName) => {
 };
 
 const buildClues = (pokemon, species) => {
-  const name = pokemon.name.toLowerCase();
+  const name = getDisplayPokemonName(pokemon, species);
   const types = pokemon.types.map((entry) => entry.type.name);
   const gen = species ? GEN_NAMES[species.generation?.name] ?? 'Desconhecida' : 'Desconhecida';
   const color = species?.color?.name || 'desconhecida';
@@ -93,7 +94,7 @@ export const handler = async () => {
     if (!pokeRes.ok) throw new Error('Erro ao buscar Pokemon.');
     const pokemon = await pokeRes.json();
 
-    const specRes = await fetch(`${BASE_URL}/pokemon-species/${pokemonId}`);
+    const specRes = await fetch(pokemon.species?.url || `${BASE_URL}/pokemon-species/${pokemonId}`);
     const species = specRes.ok ? await specRes.json() : null;
 
     const challengeToken = generateChallengeToken({
@@ -113,7 +114,7 @@ export const handler = async () => {
       clues: buildClues(pokemon, species),
       mainType: 'mystery',
       image,
-      version: 'secure-quiz-v3',
+      version: 'secure-quiz-v4',
     });
   } catch (error) {
     if (isQuizConfigError(error)) {

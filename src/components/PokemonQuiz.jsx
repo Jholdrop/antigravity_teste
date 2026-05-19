@@ -153,17 +153,20 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
         const wasAlreadyCaught = Boolean(response.alreadyCaught) || caughtIds.includes(response.pokemonId);
         setAlreadyCaught(wasAlreadyCaught);
 
+        let catchResult = null;
         if (response.trainerData) {
-          onCatch(revealedPokemon || response.capturedPokemon, response.trainerData);
+          catchResult = await onCatch(revealedPokemon || response.capturedPokemon, response.trainerData);
         } else if (!wasAlreadyCaught && revealedPokemon) {
-          onCatch(revealedPokemon);
+          catchResult = await onCatch(revealedPokemon);
         }
 
-        if (!response.saved) {
+        if (!response.saved && !catchResult?.saved) {
           setValidationMessage(
             response.saveReason ||
-              'Resposta correta, mas nao foi possivel salvar na nuvem. Confira as variaveis Firebase Admin no Netlify.'
+              'Resposta correta, mas nao foi possivel salvar na sua conta. Publique as regras atualizadas do Firestore e tente de novo.'
           );
+        } else if (!response.saved && catchResult?.saved) {
+          setValidationMessage('Resposta correta! Captura salva na sua conta.');
         } else {
           setValidationMessage(response.message || 'Parabens!');
         }

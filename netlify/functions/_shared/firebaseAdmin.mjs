@@ -1,6 +1,7 @@
 import { cert, getApp, getApps, initializeApp } from 'firebase-admin/app';
 import { getAuth } from 'firebase-admin/auth';
 import { FieldValue, getFirestore } from 'firebase-admin/firestore';
+import { getDisplayPokemonName } from './pokemonNames.mjs';
 
 const firestoreDatabaseId = process.env.FIREBASE_DATABASE_ID || 'default';
 
@@ -48,6 +49,11 @@ const sanitizeTrainerName = (value) => {
   return cleaned || 'Treinador';
 };
 
+const getScore = (previous = {}, caughtPokemons = []) => {
+  const savedScore = Number(previous.score);
+  return Number.isFinite(savedScore) ? Math.max(savedScore, caughtPokemons.length) : caughtPokemons.length;
+};
+
 export const getTrainerProfileFromToken = async (idToken) => {
   const services = getFirebaseAdminServices();
   if (!services || !idToken) {
@@ -64,6 +70,7 @@ export const getTrainerProfileFromToken = async (idToken) => {
   const previous = snapshot.exists ? snapshot.data() : {};
   const caughtPokemons = Array.isArray(previous.caughtPokemons) ? previous.caughtPokemons : [];
   const team = Array.isArray(previous.team) ? previous.team : [];
+  const score = getScore(previous, caughtPokemons);
   const trainerData = {
     uid: decoded.uid,
     name: sanitizeTrainerName(previous.name || decoded.name || decoded.email?.split('@')[0]),
@@ -71,7 +78,7 @@ export const getTrainerProfileFromToken = async (idToken) => {
     photoURL: decoded.picture || previous.photoURL || '',
     caughtPokemons,
     team,
-    score: previous.score ?? caughtPokemons.length,
+    score,
   };
 
   if (!snapshot.exists) {
@@ -100,9 +107,9 @@ export const getTrainerProfileFromToken = async (idToken) => {
   };
 };
 
-export const toCapturedPokemon = (pokemon) => ({
+export const toCapturedPokemon = (pokemon, species = null) => ({
   id: pokemon.id,
-  name: pokemon.name,
+  name: getDisplayPokemonName(pokemon, species),
   sprites: {
     front_default:
       pokemon.sprites?.other?.['official-artwork']?.front_default ||
@@ -118,20 +125,20 @@ export const toCapturedPokemon = (pokemon) => ({
   })),
 });
 
-export const awardPokemonToUser = async ({ idToken, pokemon }) => {
+export const awardPokemonToUser = async ({ idToken, pokemon, species = null }) => {
   const services = getFirebaseAdminServices();
   if (!services || !idToken) {
     return {
       saved: false,
       reason: 'Firebase Admin nao configurado ou sessao ausente.',
-      capturedPokemon: toCapturedPokemon(pokemon),
+      capturedPokemon: toCapturedPokemon(pokemon, species),
     };
   }
 
   const decoded = await services.auth.verifyIdToken(idToken);
   const db = services.db;
   const userRef = db.collection('users').doc(decoded.uid);
-  const capturedPokemon = toCapturedPokemon(pokemon);
+  const capturedPokemon = toCapturedPokemon(pokemon, species);
 
   let alreadyCaught = false;
   let score = 0;

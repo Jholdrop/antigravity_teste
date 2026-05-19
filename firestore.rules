@@ -14,20 +14,26 @@ service cloud.firestore {
       return request.resource.data.team is list && request.resource.data.team.size() <= 6;
     }
 
+    function validProgress() {
+      return request.resource.data.caughtPokemons is list
+        && request.resource.data.caughtPokemons.size() <= 1025
+        && request.resource.data.score is int
+        && request.resource.data.score == request.resource.data.caughtPokemons.size();
+    }
+
     match /users/{uid} {
       allow read: if signedIn();
 
       allow create: if isOwner(uid)
         && request.resource.data.uid == uid
-        && request.resource.data.caughtPokemons is list
-        && request.resource.data.caughtPokemons.size() == 0
-        && request.resource.data.score == 0
+        && validProgress()
         && validTeam();
 
       allow update: if isOwner(uid)
         && request.resource.data.diff(resource.data).affectedKeys()
-          .hasOnly(['name', 'email', 'photoURL', 'team', 'lastActive'])
-        && validTeam();
+          .hasOnly(['name', 'email', 'photoURL', 'team', 'caughtPokemons', 'score', 'lastActive'])
+        && validTeam()
+        && validProgress();
 
       allow delete: if false;
     }

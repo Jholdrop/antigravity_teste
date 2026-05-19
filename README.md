@@ -15,16 +15,17 @@ O front-end nao gera mais rodada localmente e nao recebe o ID/nome do Pokemon an
 
 1. Crie um projeto no Firebase.
 2. Ative Authentication > Sign-in method > Google.
-3. Adicione `quizzdex.netlify.app` em Authentication > Settings > Authorized domains.
-4. Ative Firestore Database.
-5. Publique as regras deste repo:
+3. Para cadastro sem Google, ative tambem Authentication > Sign-in method > Email/Password.
+4. Adicione `quizzdex.netlify.app` em Authentication > Settings > Authorized domains.
+5. Ative Firestore Database.
+6. Publique as regras deste repo:
 
 ```bash
 firebase deploy --only firestore:rules
 ```
 
-6. Copie as configs Web App do Firebase para as variaveis `VITE_FIREBASE_*`.
-7. Crie uma Service Account e coloque `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` e `FIREBASE_PRIVATE_KEY` no Netlify.
+7. Copie as configs Web App do Firebase para as variaveis `VITE_FIREBASE_*`.
+8. Crie uma Service Account e coloque `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` e `FIREBASE_PRIVATE_KEY` no Netlify.
 
 ## Variaveis no Netlify
 

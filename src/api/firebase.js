@@ -17,6 +17,7 @@ import {
   limit,
   orderBy,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -77,6 +78,29 @@ const getDefaultTrainerName = (user, preferredName) =>
 
 const getUserRef = (uid) => doc(db, 'users', uid);
 
+const getScore = (data = {}, caughtPokemons = []) => {
+  const savedScore = Number(data.score);
+  return Number.isFinite(savedScore) ? Math.max(savedScore, caughtPokemons.length) : caughtPokemons.length;
+};
+
+const normalizeCapturedPokemon = (pokemon) => ({
+  id: Number(pokemon.id),
+  name: String(pokemon.name || '').toLowerCase(),
+  sprites: {
+    front_default:
+      pokemon.sprites?.front_default ||
+      pokemon.sprites?.other?.['official-artwork']?.front_default ||
+      '',
+  },
+  types: (pokemon.types || []).map((entry) => ({
+    slot: Number(entry.slot || 0),
+    type: {
+      name: String(entry.type?.name || ''),
+      url: String(entry.type?.url || ''),
+    },
+  })),
+});
+
 export { auth, db };
 
 export const ensureTrainerProfile = async (user, preferredName = '') => {
@@ -86,6 +110,7 @@ export const ensureTrainerProfile = async (user, preferredName = '') => {
   const userDocRef = getUserRef(user.uid);
   const userSnap = await getDoc(userDocRef);
   const existing = userSnap.exists() ? userSnap.data() : null;
+  const caughtPokemons = Array.isArray(existing?.caughtPokemons) ? existing.caughtPokemons : [];
   const name = existing?.name || getDefaultTrainerName(user, preferredName);
 
   const profileData = {
@@ -93,9 +118,9 @@ export const ensureTrainerProfile = async (user, preferredName = '') => {
     name,
     email: user.email || existing?.email || '',
     photoURL: user.photoURL || existing?.photoURL || '',
-    caughtPokemons: existing?.caughtPokemons || [],
+    caughtPokemons,
     team: existing?.team || [],
-    score: existing?.score ?? existing?.caughtPokemons?.length ?? 0,
+    score: getScore(existing, caughtPokemons),
     lastActive: serverTimestamp(),
     ...(existing ? {} : { createdAt: serverTimestamp() }),
   };
@@ -163,6 +188,46 @@ export const saveTrainerTeam = async (uid, team) => {
   });
 };
 
+export const saveCaughtPokemon = async (uid, pokemon) => {
+  assertFirebase();
+  if (!uid || !pokemon?.id) throw new Error('Captura invalida.');
+
+  const capturedPokemon = normalizeCapturedPokemon(pokemon);
+  const userDocRef = getUserRef(uid);
+
+  return runTransaction(db, async (transaction) => {
+    const snapshot = await transaction.get(userDocRef);
+    const previous = snapshot.exists() ? snapshot.data() : {};
+    const caughtPokemons = Array.isArray(previous.caughtPokemons) ? previous.caughtPokemons : [];
+    const alreadyCaught = caughtPokemons.some((entry) => Number(entry?.id) === capturedPokemon.id);
+    const nextCaught = alreadyCaught ? caughtPokemons : [...caughtPokemons, capturedPokemon];
+    const nextTeam = Array.isArray(previous.team) ? previous.team : [];
+
+    transaction.set(
+      userDocRef,
+      {
+        uid,
+        name: previous.name || 'Treinador',
+        email: previous.email || auth.currentUser?.email || '',
+        photoURL: previous.photoURL || auth.currentUser?.photoURL || '',
+        caughtPokemons: nextCaught,
+        score: nextCaught.length,
+        team: nextTeam,
+        lastActive: serverTimestamp(),
+        ...(snapshot.exists() ? {} : { createdAt: serverTimestamp() }),
+      },
+      { merge: true }
+    );
+
+    return {
+      caughtPokemons: nextCaught,
+      team: nextTeam,
+      score: nextCaught.length,
+      alreadyCaught,
+    };
+  });
+};
+
 export const getCurrentUserIdToken = async () => {
   if (!isFirebaseConfigured || !auth?.currentUser) return '';
   return auth.currentUser.getIdToken();
@@ -200,7 +265,7 @@ export const getGlobalLeaderboard = async () => {
       return {
         uid: data.uid || entry.id,
         name: data.name || 'Treinador',
-        count: Number(data.score ?? data.caughtPokemons?.length ?? 0),
+        count: getScore(data, Array.isArray(data.caughtPokemons) ? data.caughtPokemons : []),
         photoURL: data.photoURL || '',
         isBot: false,
       };
