@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react';
 import { ArrowLeft, Loader2, Medal, Star, Trophy } from 'lucide-react';
-import { getGlobalLeaderboard, isFirebaseConfigured } from '../api/firebase';
+import { getGlobalLeaderboard, isSupabaseConfigured } from '../api/supabase';
 import './Ranking.css';
 
 const Ranking = ({ onBack, myScore, userName }) => {
@@ -12,7 +12,7 @@ const Ranking = ({ onBack, myScore, userName }) => {
       setLoading(true);
 
       try {
-        const globalPlayers = isFirebaseConfigured ? await getGlobalLeaderboard() : [];
+        const globalPlayers = isSupabaseConfigured ? await getGlobalLeaderboard() : [];
         const players = globalPlayers.map((player) => ({
           ...player,
           isMe: player.name === userName,
@@ -52,7 +52,7 @@ const Ranking = ({ onBack, myScore, userName }) => {
         <div className="ranking-info-box glass-panel">
           <h3>Ranking Global</h3>
           <p>
-            Este ranking mostra contas reais salvas no Firestore. A pontuacao sobe quando o servidor valida
+            Este ranking mostra contas reais salvas no Supabase/Postgres. A pontuacao sobe quando o servidor valida
             uma resposta correta e registra a captura.
           </p>
         </div>

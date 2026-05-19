@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from 'react';
 import { getPokemonDetails, getSecureQuizRound, submitQuizGuess } from '../api/pokeapi';
-import { getCurrentUserIdToken } from '../api/firebase';
+import { getCurrentUserIdToken } from '../api/supabase';
 import { ArrowLeft, CheckCircle, XCircle } from 'lucide-react';
 import useAntiCheat from '../hooks/useAntiCheat';
 import LoadingScreen from './ui/LoadingScreen';
@@ -163,7 +163,7 @@ const PokemonQuiz = ({ onCatch, onBack, caughtIds }) => {
         if (!response.saved && !catchResult?.saved) {
           setValidationMessage(
             response.saveReason ||
-              'Resposta correta, mas nao foi possivel salvar na sua conta. Publique as regras atualizadas do Firestore e tente de novo.'
+              'Resposta correta, mas nao foi possivel salvar na sua conta. Confira as tabelas e policies do Supabase.'
           );
         } else if (!response.saved && catchResult?.saved) {
           setValidationMessage('Resposta correta! Captura salva na sua conta.');

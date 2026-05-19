@@ -3,7 +3,7 @@ import {
   decryptChallengeToken,
   isQuizConfigError,
 } from './_shared/quizCrypto.mjs';
-import { awardPokemonToUser, toCapturedPokemon } from './_shared/firebaseAdmin.mjs';
+import { awardPokemonToUser, toCapturedPokemon } from './_shared/supabaseAdmin.mjs';
 import {
   buildAcceptedPokemonNames,
   getDisplayPokemonName,
@@ -102,7 +102,7 @@ export const handler = async (event) => {
       try {
         saveResult = await awardPokemonToUser({ idToken, pokemon, species });
       } catch (error) {
-        console.error('Falha ao salvar captura no Firebase Admin:', error);
+        console.error('Falha ao salvar captura no Supabase Admin:', error);
         saveResult = {
           saved: false,
           reason: 'Nao foi possivel salvar a captura na nuvem.',
@@ -117,7 +117,7 @@ export const handler = async (event) => {
           ? 'Resposta correta! Esse Pokemon ja estava na sua Pokedex.'
           : 'Resposta correta! Pokemon capturado e salvo na nuvem.'
         : idToken
-          ? 'Resposta correta! Configure o Firebase Admin no Netlify para salvar capturas na nuvem.'
+          ? 'Resposta correta! Configure o Supabase no Netlify para salvar capturas na nuvem.'
           : 'Resposta correta!'
       : 'Resposta incorreta. Continue tentando com calma.';
 

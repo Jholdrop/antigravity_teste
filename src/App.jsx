@@ -11,20 +11,20 @@ import {
   auth,
   getCloudTrainerProfile,
   getTrainerData,
-  isFirebaseConfigured,
+  isSupabaseConfigured,
   loginTrainer,
   logoutTrainer,
+  onAuthStateChanged,
   registerTrainer,
   saveCaughtPokemon,
   saveTrainerTeam,
   signInWithGoogle,
-} from './api/firebase';
-import { onAuthStateChanged } from 'firebase/auth';
+} from './api/supabase';
 import './App.css';
 
 function App() {
   const [currentUser, setCurrentUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(isFirebaseConfigured);
+  const [authLoading, setAuthLoading] = useState(isSupabaseConfigured);
   const [theme, setTheme] = useState(() => {
     try {
       return localStorage.getItem('antigravity_theme') || 'dark';
@@ -62,7 +62,7 @@ function App() {
   };
 
   useEffect(() => {
-    if (!isFirebaseConfigured) {
+    if (!isSupabaseConfigured) {
       return undefined;
     }
 
@@ -122,7 +122,7 @@ function App() {
       try {
         await saveTrainerTeam(currentUser.uid, team);
       } catch (error) {
-        console.error('Erro ao salvar time no Firebase:', error);
+        console.error('Erro ao salvar time no Supabase:', error);
       }
     }, 500);
 
@@ -136,9 +136,9 @@ function App() {
   };
 
   const getAuthMessage = (error) => {
-    if (error.code === 'auth/email-already-in-use') return 'Este e-mail ja esta em uso.';
-    if (error.code === 'auth/weak-password') return 'A senha precisa ter pelo menos 6 caracteres.';
-    if (error.code === 'auth/invalid-email') return 'E-mail invalido.';
+    if (error.code === 'auth/email-already-in-use' || error.message?.includes('already registered')) return 'Este e-mail ja esta em uso.';
+    if (error.code === 'auth/weak-password' || error.message?.toLowerCase().includes('password')) return 'A senha precisa ter pelo menos 6 caracteres.';
+    if (error.code === 'auth/invalid-email' || error.message?.toLowerCase().includes('email')) return error.message || 'E-mail invalido.';
     if (
       error.code === 'auth/user-not-found' ||
       error.code === 'auth/wrong-password' ||
@@ -146,10 +146,11 @@ function App() {
     ) {
       return 'E-mail ou senha incorretos.';
     }
+    if (error.message?.includes('Invalid login credentials')) return 'E-mail ou senha incorretos.';
     if (error.code === 'auth/popup-closed-by-user') return 'Login com Google cancelado.';
     if (error.code === 'auth/popup-blocked') return 'O navegador bloqueou o popup do Google.';
     if (error.code === 'auth/operation-not-allowed') {
-      return 'Login por e-mail e senha nao esta habilitado no Firebase Authentication.';
+      return 'Login por e-mail e senha nao esta habilitado no Supabase Auth.';
     }
     return error.message || 'Ocorreu um erro ao processar. Tente novamente.';
   };
@@ -170,7 +171,7 @@ function App() {
     }
   };
 
-  const handleFirebaseSubmit = async (event) => {
+  const handleSupabaseSubmit = async (event) => {
     event.preventDefault();
     setAuthError('');
     setActionLoading(true);
@@ -295,13 +296,13 @@ function App() {
         <div className="login-card glass-panel">
           <h1>Bem-vindo, Treinador!</h1>
 
-          {!isFirebaseConfigured ? (
+          {!isSupabaseConfigured ? (
             <>
-              <div className="firebase-alert-badge">
-                Firebase ainda nao esta configurado. O modo local foi desativado para que as contas sejam reais.
+              <div className="supabase-alert-badge">
+                Supabase ainda nao esta configurado. O modo local foi desativado para que as contas sejam reais.
               </div>
               <p>
-                Configure as variaveis VITE_FIREBASE_* no Netlify, habilite o provedor Google no Firebase Auth
+                Configure as variaveis VITE_SUPABASE_* no Netlify, habilite os provedores no Supabase Auth
                 e publique novamente o site.
               </p>
             </>
@@ -346,7 +347,7 @@ function App() {
                 </button>
               </div>
 
-              <form className="login-form" onSubmit={handleFirebaseSubmit}>
+              <form className="login-form" onSubmit={handleSupabaseSubmit}>
                 {isRegistering && (
                   <input
                     type="text"

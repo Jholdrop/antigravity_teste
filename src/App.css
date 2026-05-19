@@ -297,7 +297,7 @@
   border-bottom-color: #6390F0;
 }
 
-.firebase-alert-badge {
+.supabase-alert-badge {
   background: rgba(245, 158, 11, 0.15);
   border: 1px solid rgba(245, 158, 11, 0.3);
   color: #f59e0b;

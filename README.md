@@ -1,50 +1,37 @@
 # Quizzdex
 
-Jogo de quiz/Pokedex em React + Vite, publicado na Netlify com Firebase Auth, Firestore e Netlify Functions.
+Jogo de quiz/Pokedex em React + Vite, publicado na Netlify com Supabase Auth, Postgres e Netlify Functions.
 
 ## Seguranca do quiz
 
 O front-end nao gera mais rodada localmente e nao recebe o ID/nome do Pokemon antes da resposta correta.
 
 - `/.netlify/functions/getQuizRound` gera o desafio no servidor.
-- `/.netlify/functions/quizImage` faz proxy da imagem para nao expor o ID no caminho da PokeAPI.
+- `/.netlify/functions/quizImage` gera a silhueta no servidor.
 - `/.netlify/functions/validateQuizAnswer` valida a resposta no servidor.
 - `QUIZ_SECRET` e obrigatorio no ambiente; nao use segredo padrao em producao.
 
-## Configurar Firebase
+## Configurar Supabase
 
-1. Crie um projeto no Firebase.
-2. Ative Authentication > Sign-in method > Google.
-3. Para cadastro sem Google, ative tambem Authentication > Sign-in method > Email/Password.
-4. Adicione `quizzdex.netlify.app` em Authentication > Settings > Authorized domains.
-5. Ative Firestore Database.
-6. Publique as regras deste repo:
-
-```bash
-firebase deploy --only firestore:rules
-```
-
-7. Copie as configs Web App do Firebase para as variaveis `VITE_FIREBASE_*`.
-8. Crie uma Service Account e coloque `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL` e `FIREBASE_PRIVATE_KEY` no Netlify.
+1. Crie um projeto no Supabase.
+2. Em SQL Editor, rode o arquivo `supabase/schema.sql`.
+3. Em Authentication > Providers, habilite Google se quiser login social.
+4. Em Authentication > URL Configuration, adicione `https://quizzdex.netlify.app` nos redirect URLs.
+5. Copie `Project URL`, `anon public key` e `service_role key`.
 
 ## Variaveis no Netlify
 
-Cadastre em Site configuration > Environment variables:
+Cadastre em Project configuration > Environment variables:
 
 ```bash
-VITE_FIREBASE_API_KEY=...
-VITE_FIREBASE_AUTH_DOMAIN=...
-VITE_FIREBASE_PROJECT_ID=...
-VITE_FIREBASE_STORAGE_BUCKET=...
-VITE_FIREBASE_MESSAGING_SENDER_ID=...
-VITE_FIREBASE_APP_ID=...
-VITE_FIREBASE_DATABASE_ID=default
+VITE_SUPABASE_URL=...
+VITE_SUPABASE_ANON_KEY=...
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
 QUIZ_SECRET=uma-string-aleatoria-com-32-ou-mais-caracteres
-FIREBASE_PROJECT_ID=...
-FIREBASE_DATABASE_ID=default
-FIREBASE_CLIENT_EMAIL=...
-FIREBASE_PRIVATE_KEY=cole_o_valor_private_key_do_json_da_service_account
 ```
+
+`SUPABASE_SERVICE_ROLE_KEY` e segredo de servidor: nunca use no front-end e nunca commite.
 
 ## Desenvolvimento
 

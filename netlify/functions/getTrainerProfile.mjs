@@ -1,5 +1,5 @@
 import { json, methodNotAllowed, serverError } from './_shared/http.mjs';
-import { getTrainerProfileFromToken } from './_shared/firebaseAdmin.mjs';
+import { getTrainerProfileFromToken } from './_shared/supabaseAdmin.mjs';
 
 const parseBody = (event) => {
   try {
@@ -21,7 +21,7 @@ export const handler = async (event) => {
 
     return json(200, result);
   } catch (error) {
-    console.error('Erro ao carregar perfil pelo Firebase Admin:', error);
+    console.error('Erro ao carregar perfil pelo Supabase Admin:', error);
     return serverError('Nao foi possivel carregar o perfil na nuvem.');
   }
 };
