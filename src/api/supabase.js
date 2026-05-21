@@ -134,7 +134,6 @@ export const ensureTrainerProfile = async (user, preferredName = '') => {
     username: name,
     email: appUser.email || existing?.email || '',
     avatar_url: appUser.photoURL || existing?.photoURL || '',
-    score: existing?.score || 0,
     updated_at: new Date().toISOString(),
   };
 
@@ -253,10 +252,6 @@ export const saveCaughtPokemon = async (uid, pokemon) => {
 
   const bundle = await getProfileBundle(uid);
   const score = bundle.caughtPokemons.length;
-  await supabase
-    .from('profiles')
-    .update({ score, updated_at: new Date().toISOString() })
-    .eq('id', uid);
 
   return {
     caughtPokemons: bundle.caughtPokemons,
@@ -292,24 +287,13 @@ export const getCloudTrainerProfile = async () => {
 };
 
 export const getGlobalLeaderboard = async () => {
-  if (!isSupabaseConfigured || !supabase) return [];
+  if (!isSupabaseConfigured) return [];
 
   try {
-    const { data, error } = await supabase
-      .from('profiles')
-      .select('id, username, score, avatar_url')
-      .order('score', { ascending: false })
-      .limit(50);
-
-    if (error) throw error;
-
-    return (data || []).map((entry) => ({
-      uid: entry.id,
-      name: entry.username || 'Treinador',
-      count: Number(entry.score || 0),
-      photoURL: entry.avatar_url || '',
-      isBot: false,
-    }));
+    const response = await fetch('/.netlify/functions/getLeaderboard', { cache: 'no-store' });
+    const data = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(data?.error || 'Nao foi possivel carregar o ranking.');
+    return data.leaderboard || [];
   } catch (error) {
     console.error('Erro ao buscar leaderboard:', error);
     return [];

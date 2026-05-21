@@ -21,10 +21,17 @@ const getSecret = () => {
 
 const getCipherKey = () => crypto.createHash('sha256').update(getSecret()).digest();
 
-export const generateChallengeToken = ({ challengeId, pokemonId, expiresAt }) => {
+export const generateChallengeToken = ({ challengeId, pokemonId, subjectId, subjectKind, imageIndex = 0, expiresAt }) => {
   const iv = crypto.randomBytes(12);
   const cipher = crypto.createCipheriv('aes-256-gcm', getCipherKey(), iv);
-  const payload = JSON.stringify({ challengeId, pokemonId, expiresAt });
+  const payload = JSON.stringify({
+    challengeId,
+    pokemonId,
+    subjectId,
+    subjectKind,
+    imageIndex,
+    expiresAt,
+  });
   const encrypted = Buffer.concat([cipher.update(payload, 'utf8'), cipher.final()]);
   const tag = cipher.getAuthTag();
 

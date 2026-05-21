@@ -3,10 +3,11 @@ import PokemonCard from './components/PokemonCard';
 import PokemonModal from './components/PokemonModal';
 import BattleArena from './components/BattleArena';
 import PokemonQuiz from './components/PokemonQuiz';
+import NarutoQuiz from './components/NarutoQuiz';
 import MultiplayerLobby from './components/MultiplayerLobby';
 import Ranking from './components/Ranking';
 import ThemeToggle from './components/ui/ThemeToggle';
-import { HelpCircle, Swords, Trophy, Users } from 'lucide-react';
+import { HelpCircle, Swords, Trophy, Users, Sparkles, ArrowLeftRight } from 'lucide-react';
 import {
   auth,
   getCloudTrainerProfile,
@@ -36,6 +37,7 @@ function App() {
   const [selectedPokemon, setSelectedPokemon] = useState(null);
   const [team, setTeam] = useState([]);
   const [view, setView] = useState('pokedex');
+  const [activeArea, setActiveArea] = useState(null);
 
   const [isRegistering, setIsRegistering] = useState(false);
   const [trainerEmail, setTrainerEmail] = useState('');
@@ -71,6 +73,7 @@ function App() {
         setCurrentUser(null);
         setCaughtPokemons([]);
         setTeam([]);
+        setActiveArea(null);
         setAuthLoading(false);
         return;
       }
@@ -219,6 +222,7 @@ function App() {
     setCurrentUser(null);
     setCaughtPokemons([]);
     setTeam([]);
+    setActiveArea(null);
     setView('pokedex');
   };
 
@@ -388,6 +392,99 @@ function App() {
     );
   }
 
+  if (!activeArea) {
+    return (
+      <div className="app-container platform-shell">
+        <header className="app-header animate-fade-in">
+          <div className="header-brand">
+            <h1>Quizzdex</h1>
+            <span className="caught-badge">Plataforma de quizzes</span>
+          </div>
+          <div className="header-meta">
+            <span className="user-badge">Treinador: {currentUser?.name}</span>
+            <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+            <button className="btn-logout" onClick={handleLogout}>Sair</button>
+          </div>
+        </header>
+
+        <main className="platform-grid animate-fade-in">
+          <button
+            type="button"
+            className="platform-card platform-pokemon"
+            onClick={() => {
+              setActiveArea('pokemon');
+              setView('pokedex');
+            }}
+          >
+            <span className="platform-kicker">Area Pokemon</span>
+            <strong>Pokedex Quiz</strong>
+            <span>Continue capturando Pokemon, veja ranking, monte time e batalhe.</span>
+          </button>
+
+          <button
+            type="button"
+            className="platform-card platform-naruto"
+            onClick={() => {
+              setActiveArea('naruto');
+              setView('naruto-home');
+            }}
+          >
+            <span className="platform-kicker">Area Naruto</span>
+            <strong>Ninja Quiz</strong>
+            <span>Adivinhe personagens de Naruto por silhueta e dicas do universo ninja.</span>
+          </button>
+        </main>
+      </div>
+    );
+  }
+
+  if (activeArea === 'naruto') {
+    if (view === 'naruto-quiz') {
+      return <NarutoQuiz onBack={() => setView('naruto-home')} />;
+    }
+
+    return (
+      <div className="app-container naruto-hub">
+        <header className="app-header animate-fade-in">
+          <div className="header-brand">
+            <h1>Area Naruto</h1>
+            <span className="caught-badge">Quiz ninja</span>
+          </div>
+          <div className="header-meta">
+            <span className="user-badge">Jogador: {currentUser?.name}</span>
+            <ThemeToggle theme={theme} onToggle={() => setTheme(theme === 'dark' ? 'light' : 'dark')} />
+            <button className="btn-logout" onClick={handleLogout}>Sair</button>
+          </div>
+          <div className="header-actions">
+            <button className="btn-quiz-header btn-area-switch" onClick={() => setActiveArea(null)}>
+              <ArrowLeftRight size={19} />
+              Trocar area
+            </button>
+            <button className="btn-quiz-header" onClick={() => setView('naruto-quiz')}>
+              <Sparkles size={19} />
+              Jogar Naruto
+            </button>
+          </div>
+        </header>
+
+        <main className="naruto-hero animate-fade-in">
+          <div>
+            <span className="platform-kicker">Novo modo</span>
+            <h2>Qual ninja e esse?</h2>
+            <p>
+              Um desafio por silhueta com dicas de cla, afiliacao, jutsus e estreia. O nome fica protegido no servidor
+              ate voce responder.
+            </p>
+            <button className="btn-start-quiz" onClick={() => setView('naruto-quiz')}>
+              <HelpCircle size={22} />
+              Iniciar Quiz Naruto
+            </button>
+          </div>
+        </main>
+      </div>
+    );
+  }
+
   if (view === 'battle') {
     return (
       <BattleArena
@@ -429,19 +526,6 @@ function App() {
     );
   }
 
-  if (view === 'pvp-battle') {
-    return (
-      <MultiplayerLobby
-        mode="battle"
-        onBack={() => setView('pokedex')}
-        caughtIds={caughtPokemons.map((pokemon) => pokemon.id)}
-        onCatch={handleCatch}
-        userName={currentUser?.name}
-        battleTeam={getBattleTeam()}
-      />
-    );
-  }
-
   return (
     <div className="app-container">
       <header className="app-header animate-fade-in">
@@ -465,15 +549,15 @@ function App() {
           </button>
           <button className="btn-quiz-header btn-online" onClick={() => setView('multiplayer')}>
             <Users size={19} />
-            Modo Online
+            PvP Quiz
           </button>
           <button className="btn-quiz-header btn-battle-header" onClick={() => setView('battle')}>
             <Swords size={19} />
             Batalhar
           </button>
-          <button className="btn-quiz-header btn-pvp-header" onClick={() => setView('pvp-battle')}>
-            <Users size={19} />
-            Batalhar PvP
+          <button className="btn-quiz-header btn-area-switch" onClick={() => setActiveArea(null)}>
+            <ArrowLeftRight size={19} />
+            Trocar area
           </button>
           <button className="btn-quiz-header" onClick={() => setView('quiz')}>
             <HelpCircle size={19} />

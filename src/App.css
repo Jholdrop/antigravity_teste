@@ -142,6 +142,152 @@
   color: white;
 }
 
+.btn-area-switch {
+  background: linear-gradient(135deg, #0ea5e9, #2563eb);
+  border-color: rgba(14, 165, 233, 0.82);
+  color: white;
+}
+
+/* ====== PLATFORM SELECTOR ====== */
+.platform-shell,
+.naruto-hub {
+  min-height: 100vh;
+}
+
+.platform-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 1rem;
+  width: min(1000px, calc(100% - 2rem));
+  margin: 4rem auto 0;
+}
+
+.platform-card {
+  min-height: 320px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  align-items: flex-start;
+  gap: 0.8rem;
+  border: 1px solid rgba(255,255,255,0.16);
+  border-radius: 8px;
+  padding: 2rem;
+  text-align: left;
+  color: #fff;
+  cursor: pointer;
+  overflow: hidden;
+  position: relative;
+  background: #111827;
+  box-shadow: 0 24px 80px rgba(0,0,0,0.32);
+}
+
+.platform-card::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  opacity: 0.88;
+  background-size: cover;
+  background-position: center;
+  transition: transform 0.35s ease;
+}
+
+.platform-card::after {
+  content: '';
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(2,6,23,0.08), rgba(2,6,23,0.84));
+}
+
+.platform-card:hover::before {
+  transform: scale(1.04);
+}
+
+.platform-card > * {
+  position: relative;
+  z-index: 1;
+}
+
+.platform-pokemon::before {
+  background-image:
+    linear-gradient(135deg, rgba(239,68,68,0.55), rgba(37,99,235,0.52)),
+    url('https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/official-artwork/25.png');
+  background-size: 72%, auto 92%;
+  background-repeat: no-repeat;
+  background-position: right 12% center;
+}
+
+.platform-naruto::before {
+  background-image:
+    linear-gradient(135deg, rgba(249,115,22,0.68), rgba(15,23,42,0.48)),
+    url('https://static.wikia.nocookie.net/naruto/images/d/d6/Naruto_Part_I.png');
+  background-size: cover, auto 95%;
+  background-repeat: no-repeat;
+  background-position: center, right 10% center;
+}
+
+.platform-kicker {
+  width: fit-content;
+  padding: 0.35rem 0.55rem;
+  border: 1px solid rgba(255,255,255,0.28);
+  border-radius: 999px;
+  background: rgba(15,23,42,0.48);
+  font-size: 0.75rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0;
+}
+
+.platform-card strong {
+  font-size: clamp(2rem, 4vw, 3.4rem);
+  line-height: 0.95;
+}
+
+.platform-card span:last-child {
+  max-width: 440px;
+  color: rgba(255,255,255,0.86);
+  font-weight: 600;
+}
+
+.naruto-hero {
+  min-height: 58vh;
+  display: flex;
+  align-items: flex-end;
+  width: min(1100px, calc(100% - 2rem));
+  margin: 2rem auto 0;
+  padding: 2.5rem;
+  border-radius: 8px;
+  background:
+    linear-gradient(90deg, rgba(15,23,42,0.92), rgba(15,23,42,0.38)),
+    url('https://static.wikia.nocookie.net/naruto/images/7/7d/Naruto_Part_II.png');
+  background-repeat: no-repeat;
+  background-size: cover, auto 94%;
+  background-position: center, right bottom;
+  border: 1px solid rgba(255,255,255,0.14);
+}
+
+.naruto-hero > div {
+  max-width: 560px;
+}
+
+.naruto-hero h2 {
+  margin: 0.75rem 0;
+  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  line-height: 0.95;
+}
+
+.naruto-hero p {
+  margin-bottom: 1.5rem;
+  color: var(--text-muted);
+  font-size: 1.05rem;
+  line-height: 1.65;
+}
+
+.naruto-quiz-page .quiz-img-wrapper {
+  background:
+    radial-gradient(circle at center, rgba(251,146,60,0.2), transparent 58%),
+    rgba(15,23,42,0.72);
+}
+
 /* ====== EMPTY STATE ====== */
 .empty-pokedex {
   display: flex;
@@ -595,6 +741,22 @@
     justify-content: space-between;
     gap: 1rem;
     padding: 0.85rem 1rem;
+  }
+
+  .platform-grid {
+    grid-template-columns: 1fr;
+    margin-top: 1.5rem;
+  }
+
+  .platform-card {
+    min-height: 240px;
+  }
+
+  .naruto-hero {
+    min-height: 60vh;
+    padding: 1.4rem;
+    background-size: cover, auto 72%;
+    background-position: center, right bottom;
   }
 }
 

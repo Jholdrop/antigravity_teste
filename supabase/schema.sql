@@ -108,3 +108,19 @@ drop trigger if exists caught_pokemon_score_refresh on public.caught_pokemon;
 create trigger caught_pokemon_score_refresh
 after insert or delete on public.caught_pokemon
 for each row execute function public.refresh_profile_score();
+
+revoke insert(score), update(score) on public.profiles from authenticated;
+grant insert(id, username, email, avatar_url, created_at, updated_at) on public.profiles to authenticated;
+grant update(username, email, avatar_url, updated_at) on public.profiles to authenticated;
+
+update public.profiles profile
+set score = coalesce(counts.total, 0),
+updated_at = now()
+from (
+  select profiles.id, count(caught_pokemon.pokemon_id)::int as total
+  from public.profiles
+  left join public.caught_pokemon on caught_pokemon.user_id = profiles.id
+  group by profiles.id
+) counts
+where profile.id = counts.id
+  and profile.score is distinct from counts.total;

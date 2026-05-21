@@ -130,6 +130,15 @@
     drop-shadow(0 0 18px rgba(250, 204, 21, 0.45));
 }
 
+.modal-shiny-approx {
+  filter:
+    hue-rotate(34deg)
+    saturate(1.45)
+    brightness(1.08)
+    drop-shadow(0 20px 30px rgba(0, 0, 0, 0.5))
+    drop-shadow(0 0 18px rgba(250, 204, 21, 0.45));
+}
+
 .modal-pokemon-fallback {
   max-width: 100%;
   max-height: 100%;

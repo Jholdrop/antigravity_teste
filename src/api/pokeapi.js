@@ -54,6 +54,45 @@ export const submitQuizGuess = async ({
   return data;
 };
 
+export const getNarutoQuizRound = async () => {
+  const response = await fetch(`${QUIZ_API}/getNarutoQuizRound`, { cache: 'no-store' });
+  const data = await parseJson(response);
+
+  if (!response.ok) {
+    throw new Error(data?.error || 'Nao foi possivel carregar o desafio de Naruto.');
+  }
+
+  return data;
+};
+
+export const submitNarutoQuizGuess = async ({
+  challengeId,
+  challengeToken,
+  guess,
+  startedAt,
+  sessionId,
+}) => {
+  const response = await fetch(`${QUIZ_API}/validateNarutoQuizAnswer`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    cache: 'no-store',
+    body: JSON.stringify({
+      challengeId: cleanText(challengeId),
+      challengeToken: cleanText(challengeToken),
+      guess: cleanText(guess),
+      startedAt,
+      sessionId: cleanText(sessionId),
+    }),
+  });
+
+  const data = await parseJson(response);
+  if (!response.ok) {
+    throw new Error(data?.error || 'Falha ao validar a resposta.');
+  }
+
+  return data;
+};
+
 export const getPokemons = async (limit = 20, offset = 0) => {
   const response = await fetch(`${BASE_URL}/pokemon?limit=${limit}&offset=${offset}`);
   return await response.json();

@@ -1,17 +1,14 @@
 import { useState, useEffect } from 'react';
-import { X, ChevronLeft, ChevronRight, Sparkles } from 'lucide-react';
-import { getPokemonSpecies } from '../api/pokeapi';
+import { X, Sparkles } from 'lucide-react';
 import '@google/model-viewer';
 import './PokemonModal.css';
 
 const PokemonModal = ({ pokemon, onClose, onAdd, inTeam }) => {
-  const [species, setSpecies] = useState(null);
   const [imageType, setImageType] = useState('normal'); // normal, shiny
-  const [modelFailed, setModelFailed] = useState(false);
+  const [failedModelUrls, setFailedModelUrls] = useState([]);
 
   useEffect(() => {
     if (pokemon) {
-      getPokemonSpecies(pokemon.name).then(data => setSpecies(data));
       // Lock scroll
       document.body.style.overflow = 'hidden';
       return () => {
@@ -31,11 +28,13 @@ const PokemonModal = ({ pokemon, onClose, onAdd, inTeam }) => {
 
   const currentImage = images[imageType] || images.normal;
   
-  const category = imageType === 'shiny' ? 'shiny' : 'regular';
-  const modelUrl = `https://raw.githubusercontent.com/Pokemon-3D-api/assets/refs/heads/main/models/opt/${category}/${pokemon.id}.glb`;
+  const shinyModelUrl = `https://raw.githubusercontent.com/Pokemon-3D-api/assets/refs/heads/main/models/opt/shiny/${pokemon.id}.glb?v=${pokemon.id}-shiny`;
+  const regularModelUrl = `https://raw.githubusercontent.com/Pokemon-3D-api/assets/refs/heads/main/models/opt/regular/${pokemon.id}.glb?v=${pokemon.id}-regular`;
+  const shinyModelFailed = failedModelUrls.includes(shinyModelUrl);
+  const modelUrl = imageType === 'shiny' && !shinyModelFailed ? shinyModelUrl : regularModelUrl;
+  const modelFailed = failedModelUrls.includes(modelUrl);
 
   const toggleShiny = () => {
-    setModelFailed(false);
     setImageType(prev => prev === 'normal' ? 'shiny' : 'normal');
   };
 
@@ -86,9 +85,15 @@ const PokemonModal = ({ pokemon, onClose, onAdd, inTeam }) => {
                   camera-controls
                   shadow-intensity="1"
                   exposure={imageType === 'shiny' ? '1.18' : '1'}
-                  className={`modal-pokemon-image ${imageType === 'shiny' ? 'modal-shiny-model' : ''}`}
+                  className={`modal-pokemon-image ${imageType === 'shiny' ? 'modal-shiny-model' : ''} ${
+                    imageType === 'shiny' && shinyModelFailed ? 'modal-shiny-approx' : ''
+                  }`}
                   style={{ width: '100%', height: '100%', backgroundColor: 'transparent' }}
-                  onError={() => setModelFailed(true)}
+                  onError={() => {
+                    setFailedModelUrls((previous) =>
+                      previous.includes(modelUrl) ? previous : [...previous, modelUrl]
+                    );
+                  }}
                 />
               )}
             </div>
